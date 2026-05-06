@@ -4,7 +4,6 @@ import SpriteKit
 @MainActor
 final class GooseScene: SKScene, GooseSceneEffects {
     private static let displayScale: CGFloat = 1.0
-    private static let browserScale: CGFloat = 0.55
 
     let simulation = GooseSimulation()
     private let goose = GooseArt()
@@ -16,7 +15,6 @@ final class GooseScene: SKScene, GooseSceneEffects {
     private var agent: AgentDirector?
     private var honkTicker: HonkTicker?
     private let perception = PerceptionEngine()
-    private var currentBrowser: BrowserSprite?
     private var currentDraggedWindow: FloatingWindow?
     private var droppedWindows: [FloatingWindow] = []
 
@@ -72,6 +70,11 @@ final class GooseScene: SKScene, GooseSceneEffects {
         goose.update(simulation: simulation)
     }
 
+    override func willMove(from view: SKView) {
+        agent?.stop()
+        honkTicker?.stop()
+    }
+
     private func pollMouseInteraction() {
         let mouse = NSEvent.mouseLocation
         let goosePos = simulation.position
@@ -106,54 +109,6 @@ final class GooseScene: SKScene, GooseSceneEffects {
 
     func setEvictProgress(_ progress: CGFloat) {
         evictBar.setProgress(progress)
-    }
-
-    // MARK: - GooseSceneEffects (Browser)
-
-    func openBrowser(near point: CGPoint) async {
-        await closeBrowser()
-        let browser = BrowserSprite()
-        browser.setScale(0.01)
-        browser.position = browserPosition()
-        browser.zPosition = 60
-        addChild(browser)
-        currentBrowser = browser
-        await browser.run(.scale(to: Self.browserScale, duration: 0.5))
-    }
-
-    func typeBrowserURL(_ text: String) async {
-        guard let browser = currentBrowser else { return }
-        await browser.typeURL(text)
-    }
-
-    func showBrowserResult(_ result: BrowseResult) async {
-        guard let browser = currentBrowser else { return }
-        let spinner = browser.showLoadingSpinner()
-        spinner.removeFromParent()
-        switch result.content {
-        case .image(let url):
-            if let sprite = await downloadImageSprite(from: url) {
-                browser.showContent(sprite)
-            } else {
-                browser.showContent(textNode(snippet: "404 honk"))
-            }
-        case .text(let snippet):
-            browser.showContent(textNode(snippet: snippet))
-        }
-    }
-
-    func showBrowserError() async {
-        currentBrowser?.showContent(textNode(snippet: "no internets honk"))
-    }
-
-    func closeBrowser() async {
-        guard let browser = currentBrowser else { return }
-        currentBrowser = nil
-        await browser.run(.group([
-            .scale(to: 0.01, duration: 0.4),
-            .fadeOut(withDuration: 0.4)
-        ]))
-        browser.removeFromParent()
     }
 
     // MARK: - GooseSceneEffects (Native window dragging)
@@ -192,10 +147,6 @@ final class GooseScene: SKScene, GooseSceneEffects {
 
     // MARK: - Helpers
 
-    private func browserPosition() -> CGPoint {
-        CGPoint(x: size.width / 2, y: size.height / 2 + 60)
-    }
-
     /// Places a window's center ahead of the goose's beak in the direction it
     /// is facing, so the window appears to be carried by the goose.
     private func windowCenter(beak: CGPoint, direction: CGFloat, windowSize: CGSize) -> CGPoint {
@@ -205,33 +156,6 @@ final class GooseScene: SKScene, GooseSceneEffects {
             x: beak.x + forward.x * offset,
             y: beak.y + forward.y * offset + 10
         )
-    }
-
-    private func downloadImageSprite(from url: URL) async -> SKSpriteNode? {
-        guard let (data, _) = try? await URLSession.shared.data(from: url),
-              let image = NSImage(data: data) else {
-            return nil
-        }
-        let texture = SKTexture(image: image)
-        let sprite = SKSpriteNode(texture: texture)
-        let maxDimension: CGFloat = 130
-        let scaleFit = min(maxDimension / sprite.size.width, maxDimension / sprite.size.height)
-        sprite.setScale(scaleFit)
-        sprite.position = CGPoint(x: BrowserSprite.contentSize.width / 2, y: -BrowserSprite.contentSize.height / 2)
-        return sprite
-    }
-
-    private func textNode(snippet: String) -> SKLabelNode {
-        let label = SKLabelNode(text: snippet)
-        label.fontName = "Menlo"
-        label.fontSize = 9
-        label.fontColor = NSColor(white: 0.2, alpha: 1)
-        label.numberOfLines = 0
-        label.preferredMaxLayoutWidth = BrowserSprite.contentSize.width - 16
-        label.horizontalAlignmentMode = .left
-        label.verticalAlignmentMode = .top
-        label.position = CGPoint(x: 8, y: -8)
-        return label
     }
 }
 

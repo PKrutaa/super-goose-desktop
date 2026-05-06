@@ -1,0 +1,13 @@
+# Swift / SPM build artifacts
+Goose/.build/
+Goose/.swiftpm/
+Goose/Package.resolved
+
+# Xcode
+*.xcodeproj
+*.xcworkspace
+DerivedData/
+
+# macOS
+.DS_Store
+
