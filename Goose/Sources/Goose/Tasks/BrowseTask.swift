@@ -1,17 +1,40 @@
+import AppKit
 import Foundation
 
-/// STUB — full implementation lands in Task 11. This exists so the build
-/// passes for the intermediate `--brain-dryrun` task.
+/// Goose stops, a real `RealBrowserWindow` slides in loading the chosen URL,
+/// dwells for `Tuning.browseDwellSeconds`, then dismisses. The goose resumes
+/// wandering. The whole flow is a detached async sequence so the simulation
+/// tick stays cheap.
 @MainActor
 final class BrowseTask: GooseTask {
+    private let url: URL
+    private weak var effects: GooseSceneEffects?
+    private var flowTask: Task<Void, Never>?
+    private var browser: RealBrowserWindow?
+
     init(url: URL, effects: GooseSceneEffects) {
-        _ = url
-        _ = effects
+        self.url = url
+        self.effects = effects
     }
 
     func start(simulation: GooseSimulation) {
-        simulation.setTask(WanderTask())
+        simulation.velocity = .zero2
+        flowTask = Task { [weak self, weak simulation] in
+            await self?.runFlow()
+            simulation?.setTask(WanderTask())
+        }
     }
 
-    func tick(simulation: GooseSimulation) {}
+    func tick(simulation: GooseSimulation) {
+        simulation.velocity = .zero2
+    }
+
+    private func runFlow() async {
+        let window = RealBrowserWindow(url: url)
+        self.browser = window
+        await window.slideIn()
+        try? await Task.sleep(for: .seconds(Tuning.browseDwellSeconds))
+        await window.dismiss()
+        self.browser = nil
+    }
 }

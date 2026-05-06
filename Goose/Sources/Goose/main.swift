@@ -33,9 +33,21 @@ if CommandLine.arguments.contains("--brain-dryrun") {
 
 if let queryIndex = CommandLine.arguments.firstIndex(of: "--browser-demo"),
    queryIndex + 1 < CommandLine.arguments.count {
-    // Real implementation in Task 11.
-    FileHandle.standardError.write(Data("--browser-demo not yet implemented (see Task 11)\n".utf8))
-    exit(1)
+    let query = CommandLine.arguments[queryIndex + 1]
+    let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query
+    guard let url = URL(string: "https://duckduckgo.com/?q=\(encoded)") else {
+        exit(1)
+    }
+    let appShared = NSApplication.shared
+    appShared.setActivationPolicy(.accessory)
+    Task { @MainActor in
+        let win = RealBrowserWindow(url: url)
+        await win.slideIn()
+        try? await Task.sleep(for: .seconds(Tuning.browseDwellSeconds))
+        await win.dismiss()
+        exit(0)
+    }
+    appShared.run()
 }
 
 let app = NSApplication.shared
