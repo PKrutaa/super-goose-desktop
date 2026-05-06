@@ -11,3 +11,8 @@ DerivedData/
 # macOS
 .DS_Store
 
+# Reference material (kept locally, not versioned)
+Desktop Goose v0.22/
+Desktop Goose v0.22.zip
+Screenshot*.png
+
