@@ -41,15 +41,17 @@ final class GooseBrain {
         let tone = Personality.tone(forTimeOnApp: snapshot.elapsedOnApp, idle: snapshot.idleSeconds)
         let roll = Double.random(in: 0..<1)
 
-        // distribution: wander 28%, note 35%, nap 5%, deepSleep 10%, photo 14%, browse 8%
-        if roll < 0.28 {
+        // distribution: wander 23%, note 35%, nap 5%, deepSleep 10%, chill 5%, photo 14%, browse 8%
+        if roll < 0.23 {
             return GooseDecision(action: .wander)
-        } else if roll < 0.63 {
+        } else if roll < 0.58 {
             return await pickNote(bucket: bucket, tone: tone, snapshot: snapshot)
-        } else if roll < 0.68 {
+        } else if roll < 0.63 {
             return GooseDecision(action: .nap)
-        } else if roll < 0.78 {
+        } else if roll < 0.73 {
             return GooseDecision(action: .deepSleep)
+        } else if roll < 0.78 {
+            return pickChill(bucket: bucket)
         } else if roll < 0.92 {
             return GooseDecision(action: .photo)
         } else {
@@ -64,6 +66,12 @@ final class GooseBrain {
         let pool = personality.notePool(tone: tone, bucket: bucket)
         let pick = pool.randomElement() ?? ("untitled.txt", "honk")
         return GooseDecision(action: .note, noteTitle: pick.title, noteBody: pick.body)
+    }
+
+    private func pickChill(bucket: Personality.AppBucket) -> GooseDecision {
+        let mood = Personality.mood(for: bucket)
+        let uri = personality.chillPlaylists(mood: mood).randomElement()
+        return GooseDecision(action: .chill, spotifyURI: uri)
     }
 
     private func pickBrowse(bucket: Personality.AppBucket) -> GooseDecision {
@@ -82,6 +90,7 @@ final class GooseBrain {
         case .note: return "note(\(decision.noteTitle.prefix(30)))"
         case .photo: return "photo"
         case .browse: return "browse(\(decision.browseURL?.absoluteString.prefix(40) ?? ""))"
+        case .chill: return "chill(\(decision.spotifyURI?.suffix(20) ?? ""))"
         }
     }
 }

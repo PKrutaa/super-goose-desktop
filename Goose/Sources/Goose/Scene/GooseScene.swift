@@ -11,6 +11,7 @@ final class GooseScene: SKScene, GooseSceneEffects {
     private let evictBar = EvictProgressBar()
     private let gooseContainer = SKNode()
     private let hearts = HeartParticles()
+    private let headphones = HeadphonesNode()
 
     private var agent: AgentDirector?
     private var honkTicker: HonkTicker?
@@ -35,6 +36,7 @@ final class GooseScene: SKScene, GooseSceneEffects {
         gooseContainer.setScale(Self.displayScale)
         gooseContainer.zPosition = 10
         gooseContainer.addChild(goose.node)
+        gooseContainer.addChild(headphones)
         addChild(gooseContainer)
 
         evictBar.position = CGPoint(x: 16, y: size.height - 28)
@@ -68,6 +70,9 @@ final class GooseScene: SKScene, GooseSceneEffects {
         pollMouseInteraction()
         simulation.tick()
         goose.update(simulation: simulation)
+        var rig = GooseRig()
+        rig.update(position: simulation.position, directionDegrees: simulation.direction, neckLerp: simulation.neckLerpPercent)
+        headphones.update(headPoint: rig.neckHeadPoint, perpendicular: rig.perpendicular)
     }
 
     override func willMove(from view: SKView) {
@@ -128,6 +133,10 @@ final class GooseScene: SKScene, GooseSceneEffects {
     func updateDraggedWindowPosition(_ point: CGPoint, direction: CGFloat) {
         guard let window = currentDraggedWindow else { return }
         window.setCenter(windowCenter(beak: point, direction: direction, windowSize: window.size))
+    }
+
+    func setHeadphones(visible: Bool) {
+        if visible { headphones.show() } else { headphones.hide() }
     }
 
     func detachDraggedWindow() {

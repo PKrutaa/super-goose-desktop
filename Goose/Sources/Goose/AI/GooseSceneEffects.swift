@@ -10,4 +10,7 @@ protocol GooseSceneEffects: AnyObject {
     func attachDraggedWindow(_ window: FloatingWindow, at point: CGPoint, direction: CGFloat)
     func updateDraggedWindowPosition(_ point: CGPoint, direction: CGFloat)
     func detachDraggedWindow()
+
+    /// Toggle the chilling-headphones overlay on the goose.
+    func setHeadphones(visible: Bool)
 }

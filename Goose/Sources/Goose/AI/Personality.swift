@@ -90,6 +90,36 @@ struct Personality: Sendable {
         }
     }
 
+    enum Mood: Sendable { case chill, focus, hype }
+
+    static func mood(for bucket: AppBucket) -> Mood {
+        switch bucket {
+        case .comms: return .chill
+        case .codeEditor: return .focus
+        case .browser, .fallback: return Bool.random() ? .chill : .hype
+        }
+    }
+
+    func chillPlaylists(mood: Mood) -> [String] {
+        switch mood {
+        case .chill: return [
+            "spotify:playlist:37i9dQZF1DWWQRwui0ExPn",   // Lo-Fi Beats (Spotify)
+            "spotify:playlist:37i9dQZF1DX4WYpdgoIcn6",   // Chill Hits
+            "spotify:playlist:37i9dQZF1DX0SM0LYsmbMT",   // Jazz in the Background
+        ]
+        case .focus: return [
+            "spotify:playlist:37i9dQZF1DWZeKCadgRdKQ",   // Deep Focus
+            "spotify:playlist:37i9dQZF1DX9sIqqvKsjG8",   // Coding Mode
+            "spotify:playlist:37i9dQZF1DX8NTLI2TtZa6",   // Lo-Fi Cafe
+        ]
+        case .hype: return [
+            "spotify:playlist:37i9dQZF1DXcBWIGoYBM5M",   // Today's Top Hits
+            "spotify:playlist:37i9dQZF1DWXRqgorJj26U",   // Rock Classics
+            "spotify:playlist:37i9dQZF1DX1lVhptIYRda",   // Hot Country
+        ]
+        }
+    }
+
     func browseChoices(bucket: AppBucket) -> [(query: String, url: URL)] {
         switch bucket {
         case .codeEditor:
