@@ -78,4 +78,4 @@ Goose/
     └── Resources/Sprites/Goose/       # PNGs (não versionados)
 ```
 
-O código C# original está preservado em `../Source/` como referência para portar comportamentos.
+Inspirado no [Desktop Goose](https://samperson.itch.io/desktop-goose) original do samperson.

@@ -62,15 +62,13 @@ All perception (screen capture, OCR, Accessibility) runs **on-device**. Foundati
 
 ## Credits
 
-- **Sam Chiet** ([@samnchiet](https://twitter.com/samnchiet)) — original [Desktop Goose](https://samperson.itch.io/desktop-goose) for Windows. The C# source is preserved under `Source/` as the reference port.
-- **Jesús A. Álvarez** — prior Mac port (v0.22), referenced in `README-GOOSE.MD`.
-- **[romainflcht/py-goose](https://github.com/romainflcht/py-goose)** — sprite source used at runtime (not versioned in this repo).
+- **Sam Chiet** ([@samnchiet](https://twitter.com/samnchiet)) — original [Desktop Goose](https://samperson.itch.io/desktop-goose) for Windows; this project takes the concept and reimagines it on macOS.
+- **Jesús A. Álvarez** — prior Mac port (v0.22) of Sam's project, which inspired some of the macOS wiring choices.
+- **[romainflcht/py-goose](https://github.com/romainflcht/py-goose)** — sprite source used at runtime (not versioned in this repo; pulled at setup time).
 - **Honks** sampled from *Untitled Goose Game*.
 
 ## License
 
-The Swift port (everything under `Goose/`, `docs/`, `CLAUDE.md`, `README.md`) is MIT licensed — see [`LICENSE`](LICENSE).
-
-The C# original under `Source/` belongs to samperson and is included unchanged as a reference. Audio assets distributed with the original Desktop Goose belong to their respective owners. Don't redistribute the original `Desktop Goose v0.22.zip` binary; link to [samperson's itch page](https://samperson.itch.io/desktop-goose) instead.
+MIT — see [`LICENSE`](LICENSE). Audio samples (honks, etc.) belong to their respective owners and are not redistributed by this repository — they're loaded at runtime from the user's local resources.
 
 This is a personal hobby project, not affiliated with samperson, Jesús A. Álvarez, or the *Untitled Goose Game* team.

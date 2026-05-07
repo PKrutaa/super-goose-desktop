@@ -22,12 +22,12 @@ SOFTWARE.
 
 ---
 
-Notes on third-party material in this repository:
+Notes on third-party material:
 
-- The C# code under `Source/GooseDesktop/` is from Sam Chiet's original
-  Desktop Goose project (https://samperson.itch.io/desktop-goose) and is
-  included unchanged as a reference for porting. It retains its original
-  licensing.
-- Goose sprites are not versioned here; see `Goose/ASSETS.md` for provenance.
+- This project is inspired by and pays homage to Sam Chiet's Desktop Goose
+  (https://samperson.itch.io/desktop-goose). It's an independent reimagining
+  in Swift, not a fork.
+- Goose sprites are not versioned in this repository; see `Goose/ASSETS.md`
+  for provenance. Pull them at setup time per `Goose/README.md`.
 - Honk audio samples originate from Untitled Goose Game and are not
   redistributed by this repository.
