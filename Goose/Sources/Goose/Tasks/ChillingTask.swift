@@ -6,8 +6,10 @@ import Foundation
 /// fails, the visual chill still happens — the meme is the headphones.
 @MainActor
 final class ChillingTask: GooseTask {
-    private static let minDuration: CGFloat = 45
-    private static let maxDuration: CGFloat = 90
+    // Long enough to outlast a typical song (~3min). Goose stays put with
+    // headphones while the playlist plays through naturally.
+    private static let minDuration: CGFloat = 180
+    private static let maxDuration: CGFloat = 300
 
     private let spotifyURI: String?
     private weak var effects: GooseSceneEffects?

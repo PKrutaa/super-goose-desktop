@@ -19,9 +19,13 @@ import Foundation
 /// `start()` after wiring the simulation. `stop()` cancels both tasks.
 @MainActor
 final class ChillingTicker {
-    private static let baseRange: ClosedRange<TimeInterval> = 90...180
-    private static let appChangeDebounce: TimeInterval = 60
-    private static let fallbackChillProbability: Double = 0.60
+    // Slow enough that two chills in a row aren't back-to-back music interruptions.
+    // Combined with ChillingTask's 180–300s duration, this gives the user breathing
+    // room between sessions.
+    private static let baseRange: ClosedRange<TimeInterval> = 240...480
+    private static let appChangeDebounce: TimeInterval = 180
+    private static let fallbackChillProbability: Double = 0.55
+    private static let postChillCooldown: TimeInterval = 120
 
     private weak var simulation: GooseSimulation?
     private weak var perception: PerceptionEngine?
@@ -32,6 +36,7 @@ final class ChillingTicker {
     private var baseTask: Task<Void, Never>?
     private var watchTask: Task<Void, Never>?
     private var lastBonus: Date = .distantPast
+    private var lastChillStarted: Date = .distantPast
     private var lastSeenApp: String?
 
     init(simulation: GooseSimulation,
@@ -86,6 +91,14 @@ final class ChillingTicker {
         guard let simulation, let effects else { return }
         if isBusy(simulation: simulation) { return }
 
+        // Cooldown: don't fire a new chill right after one ended/started, so
+        // we don't cut songs short with a fresh playlist.
+        let sinceLastChill = Date().timeIntervalSince(lastChillStarted)
+        if sinceLastChill < Self.postChillCooldown {
+            FileHandle.standardError.write(Data("[Goose] ChillingTicker(\(reason)): cooldown — \(Int(sinceLastChill))s since last chill, need \(Int(Self.postChillCooldown))s\n".utf8))
+            return
+        }
+
         let snapshot = await perception?.captureSnapshot() ?? ContextSnapshot.empty()
         let bucket = Personality.bucket(for: snapshot.frontmostAppName)
 
@@ -98,6 +111,7 @@ final class ChillingTicker {
         ) {
             FileHandle.standardError.write(Data("[Goose] ChillingTicker(\(reason)): FM \(decision.shouldChill ? "yes" : "no"): \(decision.reason)\n".utf8))
             if decision.shouldChill {
+                lastChillStarted = Date()
                 simulation.setTask(ChillingTask(spotifyURI: decision.playlistURI, effects: effects))
             }
             return
@@ -111,6 +125,7 @@ final class ChillingTicker {
         let mood = Personality.mood(for: bucket)
         let uri = personality.chillPlaylists(mood: mood).randomElement()
         FileHandle.standardError.write(Data("[Goose] ChillingTicker(\(reason)): fallback chill mood=\(mood)\n".utf8))
+        lastChillStarted = Date()
         simulation.setTask(ChillingTask(spotifyURI: uri, effects: effects))
     }
 

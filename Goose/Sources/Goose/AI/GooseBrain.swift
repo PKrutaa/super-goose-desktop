@@ -41,17 +41,17 @@ final class GooseBrain {
         let tone = Personality.tone(forTimeOnApp: snapshot.elapsedOnApp, idle: snapshot.idleSeconds)
         let roll = Double.random(in: 0..<1)
 
-        // distribution: wander 22%, note 32%, nap 5%, deepSleep 10%, chill 15%, photo 8%, browse 8%
-        if roll < 0.22 {
+        // distribution: wander 35%, note 35%, nap 5%, deepSleep 9%, photo 8%, browse 8%
+        // (chill is owned exclusively by ChillingTicker — keeps brain from
+        // fighting the ticker's cooldown and cutting songs short)
+        if roll < 0.35 {
             return GooseDecision(action: .wander)
-        } else if roll < 0.54 {
+        } else if roll < 0.70 {
             return await pickNote(bucket: bucket, tone: tone, snapshot: snapshot)
-        } else if roll < 0.59 {
+        } else if roll < 0.75 {
             return GooseDecision(action: .nap)
-        } else if roll < 0.69 {
-            return GooseDecision(action: .deepSleep)
         } else if roll < 0.84 {
-            return pickChill(bucket: bucket)
+            return GooseDecision(action: .deepSleep)
         } else if roll < 0.92 {
             return GooseDecision(action: .photo)
         } else {
@@ -66,12 +66,6 @@ final class GooseBrain {
         let pool = personality.notePool(tone: tone, bucket: bucket)
         let pick = pool.randomElement() ?? ("untitled.txt", "honk")
         return GooseDecision(action: .note, noteTitle: pick.title, noteBody: pick.body)
-    }
-
-    private func pickChill(bucket: Personality.AppBucket) -> GooseDecision {
-        let mood = Personality.mood(for: bucket)
-        let uri = personality.chillPlaylists(mood: mood).randomElement()
-        return GooseDecision(action: .chill, spotifyURI: uri)
     }
 
     private func pickBrowse(bucket: Personality.AppBucket) -> GooseDecision {
