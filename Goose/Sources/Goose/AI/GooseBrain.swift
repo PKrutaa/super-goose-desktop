@@ -41,16 +41,16 @@ final class GooseBrain {
         let tone = Personality.tone(forTimeOnApp: snapshot.elapsedOnApp, idle: snapshot.idleSeconds)
         let roll = Double.random(in: 0..<1)
 
-        // distribution: wander 23%, note 35%, nap 5%, deepSleep 10%, chill 5%, photo 14%, browse 8%
-        if roll < 0.23 {
+        // distribution: wander 22%, note 32%, nap 5%, deepSleep 10%, chill 15%, photo 8%, browse 8%
+        if roll < 0.22 {
             return GooseDecision(action: .wander)
-        } else if roll < 0.58 {
+        } else if roll < 0.54 {
             return await pickNote(bucket: bucket, tone: tone, snapshot: snapshot)
-        } else if roll < 0.63 {
+        } else if roll < 0.59 {
             return GooseDecision(action: .nap)
-        } else if roll < 0.73 {
+        } else if roll < 0.69 {
             return GooseDecision(action: .deepSleep)
-        } else if roll < 0.78 {
+        } else if roll < 0.84 {
             return pickChill(bucket: bucket)
         } else if roll < 0.92 {
             return GooseDecision(action: .photo)

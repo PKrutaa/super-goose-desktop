@@ -15,6 +15,7 @@ final class GooseScene: SKScene, GooseSceneEffects {
 
     private var agent: AgentDirector?
     private var honkTicker: HonkTicker?
+    private var chillingTicker: ChillingTicker?
     private let perception = PerceptionEngine()
     private var currentDraggedWindow: FloatingWindow?
     private var droppedWindows: [FloatingWindow] = []
@@ -57,13 +58,24 @@ final class GooseScene: SKScene, GooseSceneEffects {
         simulation.onBite = { [weak audio] in audio?.playBite() }
         simulation.setTask(WanderTask())
 
-        let brain = GooseBrain(personality: .default)
+        let personality = Personality.default
+        let fmClient = FoundationModelClient()
+        let brain = GooseBrain(personality: personality, fmClient: fmClient)
         let agent = AgentDirector(simulation: simulation, effects: self, perception: perception, brain: brain)
         self.agent = agent
         agent.start()
         let ticker = HonkTicker(simulation: simulation, perception: perception)
         ticker.start()
         self.honkTicker = ticker
+        let chillTicker = ChillingTicker(
+            simulation: simulation,
+            perception: perception,
+            effects: self,
+            personality: personality,
+            fmClient: fmClient
+        )
+        chillTicker.start()
+        self.chillingTicker = chillTicker
     }
 
     override func update(_ currentTime: TimeInterval) {
@@ -78,6 +90,7 @@ final class GooseScene: SKScene, GooseSceneEffects {
     override func willMove(from view: SKView) {
         agent?.stop()
         honkTicker?.stop()
+        chillingTicker?.stop()
     }
 
     private func pollMouseInteraction() {
