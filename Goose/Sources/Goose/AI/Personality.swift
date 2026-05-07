@@ -90,40 +90,24 @@ struct Personality: Sendable {
         }
     }
 
-    /// Goose music vibes. He doesn't do lo-fi. He's a goose. He honks.
-    enum Mood: Sendable { case punk, metal, chaos }
-
-    static func mood(for bucket: AppBucket) -> Mood {
-        // Slight contextual bias, but mostly random — the goose imposes the mood,
-        // not the user.
-        let weighted: [Mood]
-        switch bucket {
-        case .comms:      weighted = [.punk, .punk, .chaos, .metal]
-        case .codeEditor: weighted = [.metal, .metal, .punk, .chaos]
-        case .browser:    weighted = [.chaos, .chaos, .punk, .metal]
-        case .fallback:   weighted = [.punk, .metal, .chaos]
-        }
-        return weighted.randomElement() ?? .punk
+    /// One flat list. The goose plays metal. The goose plays punk. The goose
+    /// plays whatever's loud and rude. He's a goose. There is no chill option.
+    struct GoosePlaylist: Sendable {
+        let uri: String
+        let name: String
+        let vibe: String
     }
 
-    func chillPlaylists(mood: Mood) -> [String] {
-        switch mood {
-        case .punk: return [
-            "spotify:playlist:37i9dQZF1DXa9wYJr1oMFq",   // Punk
-            "spotify:playlist:37i9dQZF1DX1spT6G94GFC",   // Pop Punk Powerhouses
-            "spotify:playlist:37i9dQZF1DWWMOmoXKqHTD",   // Punk Unleashed
+    func metalPlaylists() -> [GoosePlaylist] {
+        [
+            .init(uri: "spotify:playlist:37i9dQZF1DWXIcbzpLauPS", name: "Metal",            vibe: "heavy metal staples"),
+            .init(uri: "spotify:playlist:37i9dQZF1DWWOmm0DtxLLR", name: "Kickass Metal",    vibe: "uptempo kickass metal"),
+            .init(uri: "spotify:playlist:37i9dQZF1DXcfZ6moR6J0G", name: "The Heaviest",     vibe: "extreme / death metal"),
+            .init(uri: "spotify:playlist:37i9dQZF1DX9qNs32fujYe", name: "New Metal Tracks", vibe: "new metal releases"),
+            .init(uri: "spotify:playlist:37i9dQZF1DXa9wYJr1oMFq", name: "Punk",             vibe: "classic punk"),
+            .init(uri: "spotify:playlist:37i9dQZF1DWWMOmoXKqHTD", name: "Punk Unleashed",   vibe: "loud punk"),
+            .init(uri: "spotify:playlist:37i9dQZF1DWY4lFlS4Pnso", name: "Grunge Forever",   vibe: "grunge"),
         ]
-        case .metal: return [
-            "spotify:playlist:37i9dQZF1DWXIcbzpLauPS",   // Metal
-            "spotify:playlist:37i9dQZF1DWWOmm0DtxLLR",   // Kickass Metal
-            "spotify:playlist:37i9dQZF1DX9qNs32fujYe",   // New Metal Tracks
-        ]
-        case .chaos: return [
-            "spotify:playlist:37i9dQZF1DXcfZ6moR6J0G",   // The Heaviest
-            "spotify:playlist:37i9dQZF1DWY4lFlS4Pnso",   // Grunge Forever
-            "spotify:playlist:37i9dQZF1DXdzhNPybPCRX",   // Modern Rock Hits
-        ]
-        }
     }
 
     func browseChoices(bucket: AppBucket) -> [(query: String, url: URL)] {

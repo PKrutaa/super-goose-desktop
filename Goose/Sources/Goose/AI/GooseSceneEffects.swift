@@ -16,4 +16,7 @@ protocol GooseSceneEffects: AnyObject {
 
     /// Toggle the floating music-note particle emitter around the goose's head.
     func setMusicNotes(active: Bool)
+
+    /// Toggle the chaotic head-banging dance bob on the goose container.
+    func setDancing(active: Bool)
 }

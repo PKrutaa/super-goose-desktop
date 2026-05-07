@@ -36,6 +36,7 @@ final class ChillingTask: GooseTask {
 
         effects?.setHeadphones(visible: true)
         effects?.setMusicNotes(active: true)
+        effects?.setDancing(active: true)
 
         if let uri = spotifyURI {
             Task { @MainActor in
@@ -54,6 +55,7 @@ final class ChillingTask: GooseTask {
         if GameTime.time >= endTime {
             effects?.setHeadphones(visible: false)
             effects?.setMusicNotes(active: false)
+            effects?.setDancing(active: false)
             simulation.setTask(WanderTask())
         }
     }

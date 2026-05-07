@@ -91,8 +91,6 @@ final class ChillingTicker {
         guard let simulation, let effects else { return }
         if isBusy(simulation: simulation) { return }
 
-        // Cooldown: don't fire a new chill right after one ended/started, so
-        // we don't cut songs short with a fresh playlist.
         let sinceLastChill = Date().timeIntervalSince(lastChillStarted)
         if sinceLastChill < Self.postChillCooldown {
             FileHandle.standardError.write(Data("[Goose] ChillingTicker(\(reason)): cooldown — \(Int(sinceLastChill))s since last chill, need \(Int(Self.postChillCooldown))s\n".utf8))
@@ -100,8 +98,6 @@ final class ChillingTicker {
         }
 
         let snapshot = await perception?.captureSnapshot() ?? ContextSnapshot.empty()
-        let bucket = Personality.bucket(for: snapshot.frontmostAppName)
-
         let candidates = allCandidates()
 
         if let decision = await fmClient.decideChill(
@@ -117,16 +113,15 @@ final class ChillingTicker {
             return
         }
 
-        // Fallback: deterministic context-aware
+        // Fallback: still loud, just deterministic.
         guard Double.random(in: 0..<1) < Self.fallbackChillProbability else {
             FileHandle.standardError.write(Data("[Goose] ChillingTicker(\(reason)): fallback rolled no-chill\n".utf8))
             return
         }
-        let mood = Personality.mood(for: bucket)
-        let uri = personality.chillPlaylists(mood: mood).randomElement()
-        FileHandle.standardError.write(Data("[Goose] ChillingTicker(\(reason)): fallback chill mood=\(mood)\n".utf8))
+        let pick = personality.metalPlaylists().randomElement()
+        FileHandle.standardError.write(Data("[Goose] ChillingTicker(\(reason)): fallback chill \(pick?.name ?? "?")\n".utf8))
         lastChillStarted = Date()
-        simulation.setTask(ChillingTask(spotifyURI: uri, effects: effects))
+        simulation.setTask(ChillingTask(spotifyURI: pick?.uri, effects: effects))
     }
 
     private func isBusy(simulation: GooseSimulation) -> Bool {
@@ -135,32 +130,8 @@ final class ChillingTicker {
     }
 
     private func allCandidates() -> [FoundationModelClient.PlaylistCandidate] {
-        let moods: [(Personality.Mood, String)] = [
-            (.punk, "punk"),
-            (.metal, "metal"),
-            (.chaos, "chaos"),
-        ]
-        var out: [FoundationModelClient.PlaylistCandidate] = []
-        for (mood, label) in moods {
-            for uri in personality.chillPlaylists(mood: mood) {
-                out.append(.init(uri: uri, mood: label, name: friendlyName(for: uri)))
-            }
-        }
-        return out
-    }
-
-    private func friendlyName(for uri: String) -> String {
-        switch uri {
-        case "spotify:playlist:37i9dQZF1DXa9wYJr1oMFq": return "Punk"
-        case "spotify:playlist:37i9dQZF1DX1spT6G94GFC": return "Pop Punk Powerhouses"
-        case "spotify:playlist:37i9dQZF1DWWMOmoXKqHTD": return "Punk Unleashed"
-        case "spotify:playlist:37i9dQZF1DWXIcbzpLauPS": return "Metal"
-        case "spotify:playlist:37i9dQZF1DWWOmm0DtxLLR": return "Kickass Metal"
-        case "spotify:playlist:37i9dQZF1DX9qNs32fujYe": return "New Metal Tracks"
-        case "spotify:playlist:37i9dQZF1DXcfZ6moR6J0G": return "The Heaviest"
-        case "spotify:playlist:37i9dQZF1DWY4lFlS4Pnso": return "Grunge Forever"
-        case "spotify:playlist:37i9dQZF1DXdzhNPybPCRX": return "Modern Rock Hits"
-        default: return uri
+        personality.metalPlaylists().map {
+            .init(uri: $0.uri, mood: $0.vibe, name: $0.name)
         }
     }
 }

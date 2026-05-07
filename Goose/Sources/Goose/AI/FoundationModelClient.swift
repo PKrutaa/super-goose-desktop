@@ -152,18 +152,18 @@ final class FoundationModelClient {
 
     private static func chillPrompt(snapshot: ContextSnapshot, candidates: [PlaylistCandidate]) -> String {
         let context = contextLine(snapshot: snapshot)
-        let candidateList = candidates.map { "- \($0.uri) (mood: \($0.mood), name: \($0.name))" }.joined(separator: "\n")
+        let candidateList = candidates.map { "- \($0.uri) (\($0.name) — \($0.mood))" }.joined(separator: "\n")
         return """
         \(context)
 
-        candidate playlists (Spotify URIs):
+        candidate playlists (all heavy — metal, punk, grunge):
         \(candidateList)
 
         Decide whether the goose should put on headphones and slam music for the user RIGHT NOW.
-        The goose is feral. The available moods are punk, metal, and chaos — all loud, all
-        in-character. Strongly default to YES unless the user is clearly mid-call or recording.
-        Pick a mood that subverts the user's task: writing emails? metal. coding? punk. casual
-        browsing? full chaos. The goose loves disrupting the vibe.
+        The goose is feral. Every option is loud — there is no chill. Strongly default to YES
+        unless the user is clearly mid-call or recording. Pick whichever vibe most disrupts the
+        user's task: emails → death metal, coding → punk, browsing → grunge, etc. The goose
+        loves antagonizing the soundtrack.
 
         Respond with strict JSON only. The playlistURI MUST be exactly one of the candidates above.
         {"shouldChill": <true|false>, "playlistURI": "<one of the candidate URIs>", "reason": "<one short phrase>"}

@@ -18,6 +18,8 @@ final class GooseScene: SKScene, GooseSceneEffects {
     private var honkTicker: HonkTicker?
     private var chillingTicker: ChillingTicker?
     private let perception = PerceptionEngine()
+    private var isDancing = false
+    private var danceStartTime: TimeInterval = 0
     private var currentDraggedWindow: FloatingWindow?
     private var droppedWindows: [FloatingWindow] = []
 
@@ -89,6 +91,24 @@ final class GooseScene: SKScene, GooseSceneEffects {
         var rig = GooseRig()
         rig.update(position: simulation.position, directionDegrees: simulation.direction, neckLerp: simulation.neckLerpPercent)
         headphones.update(headPoint: rig.neckHeadPoint, perpendicular: rig.perpendicular)
+        updateDanceBob(currentTime: currentTime)
+    }
+
+    /// Sine-bounce the entire goose container while dancing. Frequency ~2.5Hz
+    /// (≈150 BPM, head-banger tempo). Amplitude 5px vertical + tiny 2px sway.
+    /// Music-note anchor reads from `headphones.position` (already bobbing
+    /// with the container) so notes spawn from the visual head.
+    private func updateDanceBob(currentTime: TimeInterval) {
+        guard isDancing else {
+            if gooseContainer.position != .zero {
+                gooseContainer.position = .zero
+            }
+            return
+        }
+        let t = currentTime - danceStartTime
+        let bobY = sin(t * .pi * 2 * 2.5) * 5
+        let swayX = sin(t * .pi * 2 * 1.25) * 2
+        gooseContainer.position = CGPoint(x: swayX, y: bobY)
     }
 
     override func willMove(from view: SKView) {
@@ -166,10 +186,22 @@ final class GooseScene: SKScene, GooseSceneEffects {
                     directionDegrees: self.simulation.direction,
                     neckLerp: self.simulation.neckLerpPercent
                 )
-                return rig.neckHeadPoint
+                // Add the dance bob so notes spawn from the visual head, not
+                // the locked simulation head.
+                let bob = self.gooseContainer.position
+                return CGPoint(x: rig.neckHeadPoint.x + bob.x, y: rig.neckHeadPoint.y + bob.y)
             }
         } else {
             musicNotes.stop()
+        }
+    }
+
+    func setDancing(active: Bool) {
+        isDancing = active
+        if active {
+            danceStartTime = CACurrentMediaTime()
+        } else {
+            gooseContainer.position = .zero
         }
     }
 
