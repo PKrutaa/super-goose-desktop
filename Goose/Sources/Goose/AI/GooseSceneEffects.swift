@@ -13,4 +13,7 @@ protocol GooseSceneEffects: AnyObject {
 
     /// Toggle the chilling-headphones overlay on the goose.
     func setHeadphones(visible: Bool)
+
+    /// Toggle the floating music-note particle emitter around the goose's head.
+    func setMusicNotes(active: Bool)
 }

@@ -90,32 +90,38 @@ struct Personality: Sendable {
         }
     }
 
-    enum Mood: Sendable { case chill, focus, hype }
+    /// Goose music vibes. He doesn't do lo-fi. He's a goose. He honks.
+    enum Mood: Sendable { case punk, metal, chaos }
 
     static func mood(for bucket: AppBucket) -> Mood {
+        // Slight contextual bias, but mostly random — the goose imposes the mood,
+        // not the user.
+        let weighted: [Mood]
         switch bucket {
-        case .comms: return .chill
-        case .codeEditor: return .focus
-        case .browser, .fallback: return Bool.random() ? .chill : .hype
+        case .comms:      weighted = [.punk, .punk, .chaos, .metal]
+        case .codeEditor: weighted = [.metal, .metal, .punk, .chaos]
+        case .browser:    weighted = [.chaos, .chaos, .punk, .metal]
+        case .fallback:   weighted = [.punk, .metal, .chaos]
         }
+        return weighted.randomElement() ?? .punk
     }
 
     func chillPlaylists(mood: Mood) -> [String] {
         switch mood {
-        case .chill: return [
-            "spotify:playlist:37i9dQZF1DWWQRwui0ExPn",   // Lo-Fi Beats (Spotify)
-            "spotify:playlist:37i9dQZF1DX4WYpdgoIcn6",   // Chill Hits
-            "spotify:playlist:37i9dQZF1DX0SM0LYsmbMT",   // Jazz in the Background
+        case .punk: return [
+            "spotify:playlist:37i9dQZF1DXa9wYJr1oMFq",   // Punk
+            "spotify:playlist:37i9dQZF1DX1spT6G94GFC",   // Pop Punk Powerhouses
+            "spotify:playlist:37i9dQZF1DWWMOmoXKqHTD",   // Punk Unleashed
         ]
-        case .focus: return [
-            "spotify:playlist:37i9dQZF1DWZeKCadgRdKQ",   // Deep Focus
-            "spotify:playlist:37i9dQZF1DX9sIqqvKsjG8",   // Coding Mode
-            "spotify:playlist:37i9dQZF1DX8NTLI2TtZa6",   // Lo-Fi Cafe
+        case .metal: return [
+            "spotify:playlist:37i9dQZF1DWXIcbzpLauPS",   // Metal
+            "spotify:playlist:37i9dQZF1DWWOmm0DtxLLR",   // Kickass Metal
+            "spotify:playlist:37i9dQZF1DX9qNs32fujYe",   // New Metal Tracks
         ]
-        case .hype: return [
-            "spotify:playlist:37i9dQZF1DXcBWIGoYBM5M",   // Today's Top Hits
-            "spotify:playlist:37i9dQZF1DWXRqgorJj26U",   // Rock Classics
-            "spotify:playlist:37i9dQZF1DX1lVhptIYRda",   // Hot Country
+        case .chaos: return [
+            "spotify:playlist:37i9dQZF1DXcfZ6moR6J0G",   // The Heaviest
+            "spotify:playlist:37i9dQZF1DWY4lFlS4Pnso",   // Grunge Forever
+            "spotify:playlist:37i9dQZF1DXdzhNPybPCRX",   // Modern Rock Hits
         ]
         }
     }

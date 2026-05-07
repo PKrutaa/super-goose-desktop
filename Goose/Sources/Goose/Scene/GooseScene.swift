@@ -12,6 +12,7 @@ final class GooseScene: SKScene, GooseSceneEffects {
     private let gooseContainer = SKNode()
     private let hearts = HeartParticles()
     private let headphones = HeadphonesNode()
+    private let musicNotes = MusicNoteParticles()
 
     private var agent: AgentDirector?
     private var honkTicker: HonkTicker?
@@ -46,6 +47,9 @@ final class GooseScene: SKScene, GooseSceneEffects {
 
         hearts.zPosition = 70
         addChild(hearts)
+
+        musicNotes.zPosition = 70
+        addChild(musicNotes)
 
         simulation.screenSize = size / Self.displayScale
         simulation.position = CGPoint(x: simulation.screenSize.width / 2, y: simulation.screenSize.height / 2)
@@ -150,6 +154,23 @@ final class GooseScene: SKScene, GooseSceneEffects {
 
     func setHeadphones(visible: Bool) {
         if visible { headphones.show() } else { headphones.hide() }
+    }
+
+    func setMusicNotes(active: Bool) {
+        if active {
+            musicNotes.start { [weak self] in
+                guard let self else { return .zero }
+                var rig = GooseRig()
+                rig.update(
+                    position: self.simulation.position,
+                    directionDegrees: self.simulation.direction,
+                    neckLerp: self.simulation.neckLerpPercent
+                )
+                return rig.neckHeadPoint
+            }
+        } else {
+            musicNotes.stop()
+        }
     }
 
     func detachDraggedWindow() {

@@ -159,10 +159,11 @@ final class FoundationModelClient {
         candidate playlists (Spotify URIs):
         \(candidateList)
 
-        Decide whether the goose should put on headphones and play music for the user RIGHT NOW.
-        Be liberal — the goose is sociable and enjoys soundtracking the user's work. Default to yes
-        unless the context strongly implies it would be obnoxious (user appears to be on a call,
-        recording, or in deep focus on a tight task).
+        Decide whether the goose should put on headphones and slam music for the user RIGHT NOW.
+        The goose is feral. The available moods are punk, metal, and chaos — all loud, all
+        in-character. Strongly default to YES unless the user is clearly mid-call or recording.
+        Pick a mood that subverts the user's task: writing emails? metal. coding? punk. casual
+        browsing? full chaos. The goose loves disrupting the vibe.
 
         Respond with strict JSON only. The playlistURI MUST be exactly one of the candidates above.
         {"shouldChill": <true|false>, "playlistURI": "<one of the candidate URIs>", "reason": "<one short phrase>"}

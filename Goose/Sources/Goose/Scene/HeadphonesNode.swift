@@ -37,11 +37,18 @@ final class HeadphonesNode: SKNode {
     }
 
     /// Position + orient relative to the head. Called every frame from
-    /// `GooseScene.update`.
+    /// `GooseScene.update`. Snaps to integer pixel coords so the headphones
+    /// don't sub-pixel-jitter while the goose is sitting still.
     func update(headPoint: CGPoint, perpendicular: CGPoint) {
-        position = CGPoint(x: headPoint.x, y: headPoint.y + 1)
-        leftCup.position = CGPoint(x: -perpendicular.x * Self.cupOffset, y: -perpendicular.y * Self.cupOffset)
-        rightCup.position = CGPoint(x: perpendicular.x * Self.cupOffset, y: perpendicular.y * Self.cupOffset)
+        position = CGPoint(x: headPoint.x.rounded(), y: (headPoint.y + 1).rounded())
+        leftCup.position = CGPoint(
+            x: (-perpendicular.x * Self.cupOffset).rounded(),
+            y: (-perpendicular.y * Self.cupOffset).rounded()
+        )
+        rightCup.position = CGPoint(
+            x: (perpendicular.x * Self.cupOffset).rounded(),
+            y: (perpendicular.y * Self.cupOffset).rounded()
+        )
     }
 
     private func buildBand() {

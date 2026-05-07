@@ -121,9 +121,9 @@ final class ChillingTicker {
 
     private func allCandidates() -> [FoundationModelClient.PlaylistCandidate] {
         let moods: [(Personality.Mood, String)] = [
-            (.chill, "chill"),
-            (.focus, "focus"),
-            (.hype, "hype"),
+            (.punk, "punk"),
+            (.metal, "metal"),
+            (.chaos, "chaos"),
         ]
         var out: [FoundationModelClient.PlaylistCandidate] = []
         for (mood, label) in moods {
@@ -135,17 +135,16 @@ final class ChillingTicker {
     }
 
     private func friendlyName(for uri: String) -> String {
-        // Best-effort label so the LLM has something human-readable beyond the URI.
         switch uri {
-        case "spotify:playlist:37i9dQZF1DWWQRwui0ExPn": return "Lo-Fi Beats"
-        case "spotify:playlist:37i9dQZF1DX4WYpdgoIcn6": return "Chill Hits"
-        case "spotify:playlist:37i9dQZF1DX0SM0LYsmbMT": return "Jazz in the Background"
-        case "spotify:playlist:37i9dQZF1DWZeKCadgRdKQ": return "Deep Focus"
-        case "spotify:playlist:37i9dQZF1DX9sIqqvKsjG8": return "Coding Mode"
-        case "spotify:playlist:37i9dQZF1DX8NTLI2TtZa6": return "Lo-Fi Cafe"
-        case "spotify:playlist:37i9dQZF1DXcBWIGoYBM5M": return "Today's Top Hits"
-        case "spotify:playlist:37i9dQZF1DWXRqgorJj26U": return "Rock Classics"
-        case "spotify:playlist:37i9dQZF1DX1lVhptIYRda": return "Hot Country"
+        case "spotify:playlist:37i9dQZF1DXa9wYJr1oMFq": return "Punk"
+        case "spotify:playlist:37i9dQZF1DX1spT6G94GFC": return "Pop Punk Powerhouses"
+        case "spotify:playlist:37i9dQZF1DWWMOmoXKqHTD": return "Punk Unleashed"
+        case "spotify:playlist:37i9dQZF1DWXIcbzpLauPS": return "Metal"
+        case "spotify:playlist:37i9dQZF1DWWOmm0DtxLLR": return "Kickass Metal"
+        case "spotify:playlist:37i9dQZF1DX9qNs32fujYe": return "New Metal Tracks"
+        case "spotify:playlist:37i9dQZF1DXcfZ6moR6J0G": return "The Heaviest"
+        case "spotify:playlist:37i9dQZF1DWY4lFlS4Pnso": return "Grunge Forever"
+        case "spotify:playlist:37i9dQZF1DXdzhNPybPCRX": return "Modern Rock Hits"
         default: return uri
         }
     }
