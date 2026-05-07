@@ -31,24 +31,26 @@ final class ChillingTicker {
     private weak var perception: PerceptionEngine?
     private weak var effects: GooseSceneEffects?
     private let personality: Personality
-    private let fmClient: FoundationModelClient
+    private let llm: LLMProvider
 
     private var baseTask: Task<Void, Never>?
     private var watchTask: Task<Void, Never>?
     private var lastBonus: Date = .distantPast
     private var lastChillStarted: Date = .distantPast
     private var lastSeenApp: String?
+    private var recentURIs: [String] = []
+    private static let recentURICap = 3
 
     init(simulation: GooseSimulation,
          perception: PerceptionEngine,
          effects: GooseSceneEffects,
          personality: Personality,
-         fmClient: FoundationModelClient) {
+         llm: LLMProvider) {
         self.simulation = simulation
         self.perception = perception
         self.effects = effects
         self.personality = personality
-        self.fmClient = fmClient
+        self.llm = llm
     }
 
     func start() {
@@ -98,16 +100,22 @@ final class ChillingTicker {
         }
 
         let snapshot = await perception?.captureSnapshot() ?? ContextSnapshot.empty()
-        let candidates = allCandidates()
+        let allCands = allCandidates()
+        // Anti-repetition: hide recently-played URIs from the candidate list.
+        let candidates: [PlaylistCandidate] = {
+            let fresh = allCands.filter { !recentURIs.contains($0.uri) }
+            return fresh.isEmpty ? allCands : fresh
+        }()
 
-        if let decision = await fmClient.decideChill(
+        if let decision = await llm.decideChill(
             systemPrompt: personality.systemPrompt,
             snapshot: snapshot,
             candidates: candidates
         ) {
-            FileHandle.standardError.write(Data("[Goose] ChillingTicker(\(reason)): FM \(decision.shouldChill ? "yes" : "no"): \(decision.reason)\n".utf8))
+            FileHandle.standardError.write(Data("[Goose] ChillingTicker(\(reason)): LLM \(decision.shouldChill ? "yes" : "no"): \(decision.reason)\n".utf8))
             if decision.shouldChill {
                 lastChillStarted = Date()
+                rememberURI(decision.playlistURI)
                 simulation.setTask(ChillingTask(spotifyURI: decision.playlistURI, effects: effects))
             }
             return
@@ -118,10 +126,18 @@ final class ChillingTicker {
             FileHandle.standardError.write(Data("[Goose] ChillingTicker(\(reason)): fallback rolled no-chill\n".utf8))
             return
         }
-        let pick = personality.metalPlaylists().randomElement()
+        let pick = candidates.randomElement()
         FileHandle.standardError.write(Data("[Goose] ChillingTicker(\(reason)): fallback chill \(pick?.name ?? "?")\n".utf8))
         lastChillStarted = Date()
+        if let uri = pick?.uri { rememberURI(uri) }
         simulation.setTask(ChillingTask(spotifyURI: pick?.uri, effects: effects))
+    }
+
+    private func rememberURI(_ uri: String) {
+        recentURIs.append(uri)
+        if recentURIs.count > Self.recentURICap {
+            recentURIs.removeFirst()
+        }
     }
 
     private func isBusy(simulation: GooseSimulation) -> Bool {
@@ -129,9 +145,9 @@ final class ChillingTicker {
         return task is ChillingTask || task is DeepSleepTask || task is DragWindowTask || task is BrowseTask || task is NabMouseTask
     }
 
-    private func allCandidates() -> [FoundationModelClient.PlaylistCandidate] {
+    private func allCandidates() -> [PlaylistCandidate] {
         personality.metalPlaylists().map {
-            .init(uri: $0.uri, mood: $0.vibe, name: $0.name)
+            PlaylistCandidate(uri: $0.uri, mood: $0.vibe, name: $0.name)
         }
     }
 }

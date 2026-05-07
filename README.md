@@ -56,9 +56,30 @@ See [`CLAUDE.md`](CLAUDE.md) for the high-level layering. Short version:
 
 Design history lives under `docs/superpowers/specs/` and `docs/superpowers/plans/`.
 
+## Brain backends
+
+The goose has three layered decision paths, tried in order:
+
+1. **OpenAI (gpt-4o-mini)** — opt-in, off by default. If a key is configured, this is used first.
+2. **Apple Foundation Models** — on-device, on if your Mac has Apple Intelligence enabled.
+3. **Deterministic pools** — handcrafted notes, browse URLs, and music; runs when neither LLM is reachable.
+
+To enable OpenAI:
+
+```bash
+mkdir -p ~/.config/goose
+echo "sk-your-openai-key-here" > ~/.config/goose/openai-key
+```
+
+Or set `OPENAI_API_KEY` in the environment before launching. The key is read once at startup; restart `swift run` to pick up changes.
+
 ## Privacy
 
-All perception (screen capture, OCR, Accessibility) runs **on-device**. Foundation Models, when wired, is also on-device. Nothing the goose "sees" leaves your machine. The only network traffic is the `RealBrowserWindow` loading a URL the brain picked — visible to you on screen.
+- **Screen capture, OCR, Accessibility** — always run **on-device**. Nothing the goose "sees" through these channels ever leaves your machine.
+- **Apple Foundation Models** — **on-device** inference; no network involved.
+- **OpenAI mode (opt-in)** — when configured, sends snapshot context (frontmost app name, OCR top-K snippets, idle time) to OpenAI servers. Don't enable this if your screen contents are sensitive.
+- **`RealBrowserWindow`** — loads a URL the brain picked. Visible network traffic, on screen, that's the whole point.
+- **Spotify** — controlled via local AppleScript only, no API calls.
 
 ## Credits
 

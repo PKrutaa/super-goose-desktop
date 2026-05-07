@@ -30,9 +30,25 @@ O ganso aparece em uma janela transparente click-through cobrindo a tela. Para s
 - Segurar **ESC** por ~1.5s (a barra "Continue holding ESC to evict goose" aparece no topo)
 - Ou clicar no ícone 🪿 na barra de menu → **Quit Goose**
 
+## Cérebro do ganso
+
+Três caminhos em ordem de preferência:
+
+1. **OpenAI (gpt-4o-mini)** — opt-in. Configure se quiser:
+   ```bash
+   mkdir -p ~/.config/goose
+   echo "sk-..." > ~/.config/goose/openai-key
+   ```
+   Ou exporte `OPENAI_API_KEY`. Restart `swift run` pra pegar.
+2. **Apple Foundation Models** — on-device, ativa quando o Apple Intelligence tá habilitado no Mac.
+3. **Pools determinísticos** — fallback hand-curated, sempre funciona.
+
 ## Privacidade
 
-Toda a percepção (screen capture, OCR, Accessibility) roda **on-device**. O Foundation Models também — quando habilitado, o modelo é local. Nada do que o ganso "vê" sai da sua máquina. O único tráfego de rede é a janela `RealBrowserWindow` carregando uma URL escolhida pelo brain (visível pra você).
+- **Captura de tela, OCR, Accessibility, Foundation Models** — tudo **on-device**.
+- **OpenAI (opt-in)** — manda contexto do snapshot (nome do app, OCR top-K, idle) pros servidores da OpenAI. Não habilite se a tela tiver coisa sensível.
+- **`RealBrowserWindow`** — carrega URL escolhida pelo brain. Tráfego visível, é o ponto.
+- **Spotify** — só AppleScript local, zero rede.
 
 ## Smoke flags
 

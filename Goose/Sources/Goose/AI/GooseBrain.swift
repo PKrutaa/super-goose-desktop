@@ -12,11 +12,13 @@ final class GooseBrain {
     }
 
     private let personality: Personality
-    private let fmClient: FoundationModelClient
+    private let llm: LLMProvider
+    private var recentNoteTitles: [String] = []
+    private static let recentNoteCap = 5
 
-    init(personality: Personality = .default, fmClient: FoundationModelClient = FoundationModelClient()) {
+    init(personality: Personality = .default, llm: LLMProvider = FoundationModelClient()) {
         self.personality = personality
-        self.fmClient = fmClient
+        self.llm = llm
     }
 
     /// Brain is always ready — the FM-unavailability case is handled by falling
@@ -60,18 +62,38 @@ final class GooseBrain {
     }
 
     private func pickNote(bucket: Personality.AppBucket, tone: Personality.Tone, snapshot: ContextSnapshot) async -> GooseDecision {
-        if let generated = await fmClient.generateNote(systemPrompt: personality.systemPrompt, snapshot: snapshot) {
+        if let generated = await llm.generateNote(systemPrompt: personality.systemPrompt, snapshot: snapshot) {
+            rememberNote(title: generated.title)
             return GooseDecision(action: .note, noteTitle: generated.title, noteBody: generated.body)
         }
         let pool = personality.notePool(tone: tone, bucket: bucket)
-        let pick = pool.randomElement() ?? ("untitled.txt", "honk")
+        // Anti-repetition: prefer entries not in the recent ring buffer.
+        let fresh = pool.filter { !recentNoteTitles.contains($0.title) }
+        let candidates = fresh.isEmpty ? pool : fresh
+        let pick = candidates.randomElement() ?? ("untitled.txt", "honk")
+        rememberNote(title: pick.title)
         return GooseDecision(action: .note, noteTitle: pick.title, noteBody: pick.body)
     }
 
+    private func rememberNote(title: String) {
+        recentNoteTitles.append(title)
+        if recentNoteTitles.count > Self.recentNoteCap {
+            recentNoteTitles.removeFirst()
+        }
+    }
+
+    private var recentBrowseURLs: [String] = []
+
     private func pickBrowse(bucket: Personality.AppBucket) -> GooseDecision {
         let choices = personality.browseChoices(bucket: bucket)
-        guard let pick = choices.randomElement() else {
+        let fresh = choices.filter { !recentBrowseURLs.contains($0.url.absoluteString) }
+        let candidates = fresh.isEmpty ? choices : fresh
+        guard let pick = candidates.randomElement() else {
             return GooseDecision(action: .wander)
+        }
+        recentBrowseURLs.append(pick.url.absoluteString)
+        if recentBrowseURLs.count > Self.recentNoteCap {
+            recentBrowseURLs.removeFirst()
         }
         return GooseDecision(action: .browse, browseURL: pick.url)
     }

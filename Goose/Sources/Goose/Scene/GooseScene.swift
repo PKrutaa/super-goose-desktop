@@ -65,8 +65,13 @@ final class GooseScene: SKScene, GooseSceneEffects {
         simulation.setTask(WanderTask())
 
         let personality = Personality.default
-        let fmClient = FoundationModelClient()
-        let brain = GooseBrain(personality: personality, fmClient: fmClient)
+        // OpenAI first (when configured), Apple FoundationModels second.
+        // Both fall back to deterministic pools at the call sites if neither
+        // is ready or both fail.
+        let openAI = OpenAIClient()
+        let fm = FoundationModelClient()
+        let llm = LLMRouter(providers: [openAI, fm])
+        let brain = GooseBrain(personality: personality, llm: llm)
         let agent = AgentDirector(simulation: simulation, effects: self, perception: perception, brain: brain)
         self.agent = agent
         agent.start()
@@ -78,7 +83,7 @@ final class GooseScene: SKScene, GooseSceneEffects {
             perception: perception,
             effects: self,
             personality: personality,
-            fmClient: fmClient
+            llm: llm
         )
         chillTicker.start()
         self.chillingTicker = chillTicker

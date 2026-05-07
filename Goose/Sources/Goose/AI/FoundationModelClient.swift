@@ -12,30 +12,9 @@ import FoundationModels
 /// `GooseAction.swift` they hung the build for 7+ minutes). Instead we ask
 /// the model for strict JSON and decode with `JSONDecoder`.
 @MainActor
-final class FoundationModelClient {
-    enum Status: Sendable {
-        case ready
-        case unavailable(String)
-    }
-
-    struct GeneratedNote: Codable, Sendable {
-        let title: String
-        let body: String
-    }
-
-    struct ChillDecision: Codable, Sendable {
-        let shouldChill: Bool
-        let playlistURI: String
-        let reason: String
-    }
-
-    struct PlaylistCandidate: Sendable {
-        let uri: String
-        let mood: String
-        let name: String
-    }
-
-    private(set) var status: Status
+final class FoundationModelClient: LLMProvider {
+    let label = "AppleFoundationModels"
+    private(set) var status: LLMStatus
     private var consecutiveAssetFailures = 0
     private static let assetFailureThreshold = 2
 
@@ -119,7 +98,7 @@ final class FoundationModelClient {
 
     // MARK: - Status
 
-    private static func computeStatus() -> Status {
+    private static func computeStatus() -> LLMStatus {
         #if canImport(FoundationModels)
         let model = SystemLanguageModel.default
         switch model.availability {

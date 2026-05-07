@@ -8,7 +8,8 @@ if let pathArgIndex = CommandLine.arguments.firstIndex(of: "--render-preview"),
 }
 
 if CommandLine.arguments.contains("--brain-dryrun") {
-    let brain = GooseBrain()
+    let llm = LLMRouter(providers: [OpenAIClient(), FoundationModelClient()])
+    let brain = GooseBrain(llm: llm)
     let snapshots: [ContextSnapshot] = [
         fakeSnapshot(app: "Xcode", time: 120, idle: 5, ocr: ["TODO: rewrite this", "var foo = 42", "let bar: Int"]),
         fakeSnapshot(app: "Slack", time: 30, idle: 1, ocr: ["are we still on for thursday", "@channel quick question"]),
