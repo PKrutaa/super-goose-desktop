@@ -63,6 +63,8 @@ final class AgentDirector {
             return
         case .nap:
             simulation.setTask(NapTask())
+        case .deepSleep:
+            simulation.setTask(DeepSleepTask())
         case .note:
             let title = decision.noteTitle.isEmpty ? "untitled.txt" : decision.noteTitle
             let body = decision.noteBody.isEmpty ? "honk" : decision.noteBody

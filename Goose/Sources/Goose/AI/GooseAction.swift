@@ -8,6 +8,7 @@ import Foundation
 enum GooseDecisionType: String, Sendable {
     case wander
     case nap
+    case deepSleep
     case note
     case photo
     case browse
