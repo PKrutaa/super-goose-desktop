@@ -16,3 +16,7 @@ Desktop Goose v0.22/
 Desktop Goose v0.22.zip
 Screenshot*.png
 
+# C# reference build artifacts (Source/ is read-only reference, not built here)
+Source/**/obj/
+Source/**/bin/
+
