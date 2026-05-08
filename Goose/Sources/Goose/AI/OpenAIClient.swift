@@ -13,7 +13,10 @@ import Foundation
 final class OpenAIClient: LLMProvider {
     static let model = "gpt-5-mini"
     static let endpoint = URL(string: "https://api.openai.com/v1/chat/completions")!
-    static let timeoutSeconds: TimeInterval = 8
+    // gpt-5 family is a reasoning model — generation takes longer than 4o
+    // because it spends tokens on internal reasoning before emitting the
+    // final answer. 30s is generous; the goose can wait.
+    static let timeoutSeconds: TimeInterval = 30
 
     let label = "OpenAI(gpt-5-mini)"
     private(set) var status: LLMStatus
@@ -62,8 +65,9 @@ final class OpenAIClient: LLMProvider {
         guard let apiKey else { return nil }
 
         // gpt-5 family: temperature is locked to default and `max_tokens` is
-        // replaced by `max_completion_tokens`. Keep params minimal so the
-        // request works across both 4o-mini and 5-mini.
+        // replaced by `max_completion_tokens`. Set reasoning_effort: "low" so
+        // the model doesn't burn 30s thinking about a sticky note.
+        // The token budget covers both reasoning + final JSON.
         let body: [String: Any] = [
             "model": Self.model,
             "messages": [
@@ -71,7 +75,8 @@ final class OpenAIClient: LLMProvider {
                 ["role": "user", "content": userPrompt],
             ],
             "response_format": ["type": "json_object"],
-            "max_completion_tokens": 400,
+            "max_completion_tokens": 1500,
+            "reasoning_effort": "low",
         ]
         guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else { return nil }
 
