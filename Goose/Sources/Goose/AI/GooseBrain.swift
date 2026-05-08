@@ -15,6 +15,7 @@ final class GooseBrain {
     private let llm: LLMProvider
     private var recentNoteTitles: [String] = []
     private static let recentNoteCap = 5
+    private static let recentBrowseCap = 5
 
     init(personality: Personality = .default, llm: LLMProvider = FoundationModelClient()) {
         self.personality = personality
@@ -92,7 +93,7 @@ final class GooseBrain {
             return GooseDecision(action: .wander)
         }
         recentBrowseURLs.append(pick.url.absoluteString)
-        if recentBrowseURLs.count > Self.recentNoteCap {
+        if recentBrowseURLs.count > Self.recentBrowseCap {
             recentBrowseURLs.removeFirst()
         }
         return GooseDecision(action: .browse, browseURL: pick.url)

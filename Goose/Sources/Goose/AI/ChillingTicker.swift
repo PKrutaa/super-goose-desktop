@@ -36,7 +36,8 @@ final class ChillingTicker {
     private var baseTask: Task<Void, Never>?
     private var watchTask: Task<Void, Never>?
     private var lastBonus: Date = .distantPast
-    private var lastChillStarted: Date = .distantPast
+    private var lastChillEnded: Date = .distantPast
+    private var wasChilling = false
     private var lastSeenApp: String?
     private var recentURIs: [String] = []
     private static let recentURICap = 3
@@ -80,6 +81,9 @@ final class ChillingTicker {
     }
 
     private func checkAppChange() async {
+        if let sim = simulation {
+            updateChillTracking(simulation: sim)
+        }
         let current = perception?.lastFrontmostAppName
         defer { lastSeenApp = current }
         guard let current, current != lastSeenApp, lastSeenApp != nil else { return }
@@ -91,17 +95,21 @@ final class ChillingTicker {
 
     private func tickOnce(reason: String) async {
         guard let simulation, let effects else { return }
+        updateChillTracking(simulation: simulation)
         if isBusy(simulation: simulation) { return }
 
-        let sinceLastChill = Date().timeIntervalSince(lastChillStarted)
-        if sinceLastChill < Self.postChillCooldown {
-            FileHandle.standardError.write(Data("[Goose] ChillingTicker(\(reason)): cooldown — \(Int(sinceLastChill))s since last chill, need \(Int(Self.postChillCooldown))s\n".utf8))
+        // Cooldown is measured from when the previous chill *ended*, not when
+        // it started — chill duration (180–300s) is longer than the cooldown
+        // (120s), so basing on "started" would expire mid-chill and let an
+        // app-change trigger a back-to-back chill seconds after exit.
+        let sinceLastEnd = Date().timeIntervalSince(lastChillEnded)
+        if sinceLastEnd < Self.postChillCooldown {
+            FileHandle.standardError.write(Data("[Goose] ChillingTicker(\(reason)): cooldown — \(Int(sinceLastEnd))s since chill ended, need \(Int(Self.postChillCooldown))s\n".utf8))
             return
         }
 
         let snapshot = await perception?.captureSnapshot() ?? ContextSnapshot.empty()
         let allCands = allCandidates()
-        // Anti-repetition: hide recently-played URIs from the candidate list.
         let candidates: [PlaylistCandidate] = {
             let fresh = allCands.filter { !recentURIs.contains($0.uri) }
             return fresh.isEmpty ? allCands : fresh
@@ -114,23 +122,32 @@ final class ChillingTicker {
         ) {
             FileHandle.standardError.write(Data("[Goose] ChillingTicker(\(reason)): LLM \(decision.shouldChill ? "yes" : "no"): \(decision.reason)\n".utf8))
             if decision.shouldChill {
-                lastChillStarted = Date()
                 rememberURI(decision.playlistURI)
                 simulation.setTask(ChillingTask(spotifyURI: decision.playlistURI, effects: effects))
+                wasChilling = true
             }
             return
         }
 
-        // Fallback: still loud, just deterministic.
         guard Double.random(in: 0..<1) < Self.fallbackChillProbability else {
             FileHandle.standardError.write(Data("[Goose] ChillingTicker(\(reason)): fallback rolled no-chill\n".utf8))
             return
         }
         let pick = candidates.randomElement()
         FileHandle.standardError.write(Data("[Goose] ChillingTicker(\(reason)): fallback chill \(pick?.name ?? "?")\n".utf8))
-        lastChillStarted = Date()
         if let uri = pick?.uri { rememberURI(uri) }
         simulation.setTask(ChillingTask(spotifyURI: pick?.uri, effects: effects))
+        wasChilling = true
+    }
+
+    /// Track when the previous chill ended so the cooldown is measured from
+    /// the right baseline. Polled from `tickOnce` and `checkAppChange`.
+    private func updateChillTracking(simulation: GooseSimulation) {
+        let currentlyChilling = simulation.currentTask is ChillingTask
+        if wasChilling && !currentlyChilling {
+            lastChillEnded = Date()
+        }
+        wasChilling = currentlyChilling
     }
 
     private func rememberURI(_ uri: String) {

@@ -60,26 +60,71 @@ Design history lives under `docs/superpowers/specs/` and `docs/superpowers/plans
 
 The goose has three layered decision paths, tried in order:
 
-1. **OpenAI (gpt-5-mini)** — opt-in, off by default. If a key is configured, this is used first.
-2. **Apple Foundation Models** — on-device, on if your Mac has Apple Intelligence enabled.
-3. **Deterministic pools** — handcrafted notes, browse URLs, and music; runs when neither LLM is reachable.
+1. **OpenAI (`gpt-5-mini` by default)** — opt-in, off by default. When configured, used first for note generation and chill-playlist selection.
+2. **Apple Foundation Models** — on-device, used automatically if your Mac has Apple Intelligence enabled and the model assets are downloaded.
+3. **Deterministic pools** — handcrafted notes, browse URLs, and music; always available as the last-resort fallback.
 
-To enable OpenAI:
+The router (`AI/LLMRouter.swift`) walks the list and uses the first ready provider; if a call fails or returns malformed output, it falls through to the next. This means the goose **always works** — even with no internet and no Apple Intelligence.
+
+### Enabling OpenAI
+
+Two ways. Pick one.
+
+**Config file** (recommended for desktop apps launched from Finder):
 
 ```bash
 mkdir -p ~/.config/goose
 echo "sk-your-openai-key-here" > ~/.config/goose/openai-key
+chmod 600 ~/.config/goose/openai-key
 ```
 
-Or set `OPENAI_API_KEY` in the environment before launching. The key is read once at startup; restart `swift run` to pick up changes.
+**Environment variable** (handy when launching via terminal):
+
+```bash
+export OPENAI_API_KEY=sk-your-key-here
+swift run
+```
+
+The key is read once at process startup. Edit and re-launch to swap.
+
+### Switching models
+
+Default is `gpt-5-mini` (reasoning model). Cheaper and lower-latency choice: `gpt-4o-mini`. Edit `Goose/Sources/Goose/AI/OpenAIClient.swift`:
+
+```swift
+static let model = "gpt-5-mini"   // or "gpt-4o-mini", "gpt-5-nano", etc.
+```
+
+The client sets `reasoning_effort: "low"` and `max_completion_tokens: 1500`, which works for both 4o and 5-family models. Per-call cost is minimal — gpt-5-mini at low reasoning effort runs around fractions of a cent per note.
+
+### Status checks at runtime
+
+When you run `swift run`, the stderr log tells you which providers are live:
+
+```
+[Goose] OpenAIClient: ready (key=...A4f2)
+[Goose] FoundationModelClient: unavailable (appleIntelligenceNotEnabled)
+[Goose] LLMRouter: Router(OpenAI(gpt-5-mini)[ready] → AppleFoundationModels[unavailable])
+```
+
+If neither lights up, the deterministic pools take over silently — you'll see `[fallback]` markers in `ChillingTicker` decisions.
+
+### What gets sent to OpenAI
+
+Each LLM call carries a tiny context line:
+
+> `user is in <app> (was in <prev_app> before, <N>s on this app, <N>s idle)`
+
+That's it. **No OCR, no screenshot bytes, no window titles.** OCR was removed after it was found to leak verbatim into note bodies (and was a privacy risk). The model sees only app names + timing.
 
 ## Privacy
 
-- **Screen capture, OCR, Accessibility** — always run **on-device**. Nothing the goose "sees" through these channels ever leaves your machine.
+- **Screen capture, OCR, Accessibility** — always run **on-device**. Captured locally for the brain's deterministic pools and never sent over the network. (See "What gets sent to OpenAI" above.)
 - **Apple Foundation Models** — **on-device** inference; no network involved.
-- **OpenAI mode (opt-in)** — when configured, sends snapshot context (frontmost app name, OCR top-K snippets, idle time) to OpenAI servers. Don't enable this if your screen contents are sensitive.
-- **`RealBrowserWindow`** — loads a URL the brain picked. Visible network traffic, on screen, that's the whole point.
-- **Spotify** — controlled via local AppleScript only, no API calls.
+- **OpenAI mode (opt-in)** — sends only the frontmost app name + timing summary to OpenAI servers. No OCR, no window titles, no screenshot data. Off by default.
+- **`RealBrowserWindow`** — loads a URL the brain picked into a click-through `WKWebView`. Visible on-screen.
+- **Spotify** — controlled via local AppleScript (`osascript`). Zero network from this app — Spotify itself does the streaming.
+- **Honk audio** — local file playback only.
 
 ## Credits
 

@@ -16,43 +16,76 @@ enum SpotifyController {
     }
 
     private static func runOsascript(script: String) async -> Bool {
-        await withCheckedContinuation { (cont: CheckedContinuation<Bool, Never>) in
+        // Capture isolated state before crossing into the global queue closure.
+        let timeout = Self.timeoutSeconds
+        return await withCheckedContinuation { (cont: CheckedContinuation<Bool, Never>) in
             DispatchQueue.global(qos: .userInitiated).async {
                 let process = Process()
                 process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
                 process.arguments = ["-e", script]
+
+                // Discard stdin (don't inherit a TTY — AppleScript could block
+                // reading) and stdout (we don't need it). Drain stderr async
+                // so the child can't deadlock when output exceeds the pipe
+                // buffer (~16-64KB).
+                process.standardInput = FileHandle.nullDevice
+                process.standardOutput = FileHandle.nullDevice
                 let errPipe = Pipe()
                 process.standardError = errPipe
-                process.standardOutput = Pipe()
+                let errBuffer = ErrBuffer()
+                errPipe.fileHandleForReading.readabilityHandler = { handle in
+                    let chunk = handle.availableData
+                    if chunk.isEmpty { return }
+                    errBuffer.append(chunk)
+                }
 
                 do {
                     try process.run()
                 } catch {
+                    errPipe.fileHandleForReading.readabilityHandler = nil
                     FileHandle.standardError.write(Data("[Goose] SpotifyController: failed to launch osascript: \(error)\n".utf8))
                     cont.resume(returning: false)
                     return
                 }
 
-                let deadline = Date().addingTimeInterval(timeoutSeconds)
+                let deadline = Date().addingTimeInterval(timeout)
                 while process.isRunning && Date() < deadline {
                     Thread.sleep(forTimeInterval: 0.05)
                 }
                 if process.isRunning {
                     process.terminate()
+                    process.waitUntilExit()
+                    errPipe.fileHandleForReading.readabilityHandler = nil
                     FileHandle.standardError.write(Data("[Goose] SpotifyController: osascript timed out\n".utf8))
                     cont.resume(returning: false)
                     return
                 }
 
+                errPipe.fileHandleForReading.readabilityHandler = nil
                 if process.terminationStatus == 0 {
                     cont.resume(returning: true)
                 } else {
-                    let errData = errPipe.fileHandleForReading.availableData
-                    let errStr = String(data: errData, encoding: .utf8) ?? "<unreadable>"
+                    let errStr = String(data: errBuffer.read(), encoding: .utf8) ?? "<unreadable>"
                     FileHandle.standardError.write(Data("[Goose] SpotifyController: osascript exit \(process.terminationStatus): \(errStr)".utf8))
                     cont.resume(returning: false)
                 }
             }
         }
+    }
+}
+
+/// Lock-protected mutable Data buffer for cross-thread stderr drain.
+private final class ErrBuffer: @unchecked Sendable {
+    private let lock = NSLock()
+    private var data = Data()
+
+    func append(_ chunk: Data) {
+        lock.lock(); defer { lock.unlock() }
+        data.append(chunk)
+    }
+
+    func read() -> Data {
+        lock.lock(); defer { lock.unlock() }
+        return data
     }
 }

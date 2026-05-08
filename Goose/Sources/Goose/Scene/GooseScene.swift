@@ -99,8 +99,10 @@ final class GooseScene: SKScene, GooseSceneEffects {
             object: nil,
             queue: .main
         ) { [weak self] note in
+            // Pull the window out before crossing actor boundaries — `note` is
+            // not Sendable, but NSWindow (an NSObject ref) is fine to ferry.
             guard let win = note.object as? NSWindow else { return }
-            Task { @MainActor [weak self] in
+            MainActor.assumeIsolated {
                 self?.handleWindowWillClose(win)
             }
         }
@@ -153,6 +155,9 @@ final class GooseScene: SKScene, GooseSceneEffects {
         agent?.stop()
         honkTicker?.stop()
         chillingTicker?.stop()
+        // Clear tracked windows BEFORE removing observer so any stragglers
+        // closed during teardown don't trigger a posthumous rage event.
+        trackedGooseWindows.removeAll()
         if let observer = closeObserver {
             NotificationCenter.default.removeObserver(observer)
             closeObserver = nil

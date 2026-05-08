@@ -87,7 +87,16 @@ final class GooseSimulation {
         if CGPoint.magnitude(velocity) > currentSpeed {
             velocity = CGPoint.normalize(velocity) * currentSpeed
         }
-        velocity += CGPoint.normalize(targetPos - position) * currentAcceleration * GameTime.deltaTime
+        // Deadband: when the goose is essentially at its target, stop pushing
+        // velocity toward it. Without this, stationary tasks (pause, nap,
+        // deep sleep) leave a non-zero `targetPos - position` vector and the
+        // engine micro-jitters the goose forever toward an unreachable point.
+        let toTarget = targetPos - position
+        if CGPoint.magnitude(toTarget) > 1 {
+            velocity += CGPoint.normalize(toTarget) * currentAcceleration * GameTime.deltaTime
+        } else {
+            velocity = .zero2
+        }
         position += velocity * GameTime.deltaTime
 
         solveFeet()
