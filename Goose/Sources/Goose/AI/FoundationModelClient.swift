@@ -36,7 +36,28 @@ final class FoundationModelClient: LLMProvider {
         let raw = await runWithTimeout(seconds: Tuning.fmTimeoutSeconds) {
             await self.callJSON(systemPrompt: systemPrompt, prompt: user)
         }
-        return Self.decode(GeneratedNote.self, from: raw)
+        guard let note = Self.decode(GeneratedNote.self, from: raw) else { return nil }
+        return Self.sanitize(note: note)
+    }
+
+    private static func sanitize(note: GeneratedNote) -> GeneratedNote? {
+        let title = note.title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let cleanTitle: String = (title.count > 24 || title.contains(" ") || !title.contains(".")) ? "untitled.txt" : title
+
+        var body = note.body.trimmingCharacters(in: .whitespacesAndNewlines)
+        for prefix in ["context:", "user is in", "title:", "body:", "{"] {
+            if body.lowercased().hasPrefix(prefix.lowercased()) {
+                if let nl = body.firstIndex(of: "\n") {
+                    body = String(body[body.index(after: nl)...]).trimmingCharacters(in: .whitespacesAndNewlines)
+                } else {
+                    return nil
+                }
+            }
+        }
+        let lines = body.split(separator: "\n", omittingEmptySubsequences: false).prefix(4)
+        let capped = String(lines.joined(separator: "\n").prefix(80))
+        guard !capped.isEmpty else { return nil }
+        return GeneratedNote(title: cleanTitle, body: capped)
     }
 
     func decideChill(systemPrompt: String, snapshot: ContextSnapshot, candidates: [PlaylistCandidate]) async -> ChillDecision? {
@@ -121,11 +142,19 @@ final class FoundationModelClient: LLMProvider {
         return """
         \(context)
 
-        Write a short opinionated sticky note for the user about what they're doing right now.
-        Title is a filename like "untitled.txt" or "todo.md". Body is 2-4 lines max, lower case, no emojis.
+        Write a short opinionated sticky note from a sarcastic-cynical desktop goose.
+
+        Hard rules:
+        - title: a tiny filename like "untitled.txt", "todo.md", "honk.txt".
+          Just a filename. NOT the app name. NOT a quoted phrase.
+        - body: 2 to 4 short lines, lower case, no emojis, no exclamation points
+          except 'honk'. Total under 80 characters.
+        - DO NOT quote any screen text or app names verbatim.
+        - DO NOT echo the prompt or any field labels back.
+        - Output ONLY the JSON, nothing else.
 
         Respond with strict JSON only:
-        {"title": "<filename>", "body": "<note body, can have \\n>"}
+        {"title": "<filename>", "body": "<note body, can include \\n>"}
         """
     }
 
@@ -150,13 +179,12 @@ final class FoundationModelClient: LLMProvider {
     }
 
     private static func contextLine(snapshot: ContextSnapshot) -> String {
+        // OCR was leaking into note bodies. Keep only safe summarized signals.
         let app = snapshot.frontmostAppName ?? "unknown"
         let prev = snapshot.prevFrontmostAppName ?? "none"
         let time = Int(snapshot.elapsedOnApp)
         let idle = Int(snapshot.idleSeconds)
-        let ocr = snapshot.ocrTopK.joined(separator: "; ")
-        let raw = "context: app=\(app) | timeOnApp=\(time)s | prev=\(prev) | idle=\(idle)s | ocr=[\(ocr)]"
-        return String(raw.prefix(500))
+        return "user is in \(app) (was in \(prev) before, \(time)s on this app, \(idle)s idle)"
     }
 
     // MARK: - JSON decoding

@@ -20,6 +20,12 @@ final class GooseScene: SKScene, GooseSceneEffects {
     private let perception = PerceptionEngine()
     private var isDancing = false
     private var danceStartTime: TimeInterval = 0
+
+    /// Windows the goose has opened that we're watching for user-initiated
+    /// close. When one closes while still in this set, the user did it →
+    /// goose rages and chases the cursor.
+    private var trackedGooseWindows: Set<NSWindow> = []
+    private var closeObserver: NSObjectProtocol?
     private var currentDraggedWindow: FloatingWindow?
     private var droppedWindows: [FloatingWindow] = []
 
@@ -87,6 +93,33 @@ final class GooseScene: SKScene, GooseSceneEffects {
         )
         chillTicker.start()
         self.chillingTicker = chillTicker
+
+        closeObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] note in
+            guard let win = note.object as? NSWindow else { return }
+            Task { @MainActor [weak self] in
+                self?.handleWindowWillClose(win)
+            }
+        }
+    }
+
+    /// Called by the willClose observer for any NSWindow in the process. We
+    /// only react if it's one we tracked (i.e. the goose opened it AND we
+    /// haven't already untracked because we initiated the close ourselves).
+    private func handleWindowWillClose(_ window: NSWindow) {
+        guard trackedGooseWindows.remove(window) != nil else { return }
+        triggerRage()
+    }
+
+    private func triggerRage() {
+        // The user just dismissed something the goose dropped on them.
+        // Honk + chase the cursor, regardless of what task is running.
+        simulation.onHonk?()
+        simulation.setTask(NabMouseTask())
+        FileHandle.standardError.write(Data("[Goose] rage: user closed a goose-opened window\n".utf8))
     }
 
     override func update(_ currentTime: TimeInterval) {
@@ -120,6 +153,10 @@ final class GooseScene: SKScene, GooseSceneEffects {
         agent?.stop()
         honkTicker?.stop()
         chillingTicker?.stop()
+        if let observer = closeObserver {
+            NotificationCenter.default.removeObserver(observer)
+            closeObserver = nil
+        }
     }
 
     private func pollMouseInteraction() {
@@ -161,7 +198,12 @@ final class GooseScene: SKScene, GooseSceneEffects {
     // MARK: - GooseSceneEffects (Native window dragging)
 
     func attachDraggedWindow(_ window: FloatingWindow, at point: CGPoint, direction: CGFloat) {
-        currentDraggedWindow?.closeWithFade(duration: 0.3)
+        if let prev = currentDraggedWindow {
+            // Goose is replacing its own dragged window — that's a self-close,
+            // don't rage.
+            trackedGooseWindows.remove(prev.window)
+            prev.closeWithFade(duration: 0.3)
+        }
         currentDraggedWindow = window
         window.window.alphaValue = 0
         window.setCenter(windowCenter(beak: point, direction: direction, windowSize: window.size))
@@ -170,6 +212,7 @@ final class GooseScene: SKScene, GooseSceneEffects {
             context.duration = 0.25
             window.window.animator().alphaValue = 1
         }
+        trackedGooseWindows.insert(window.window)
     }
 
     func updateDraggedWindowPosition(_ point: CGPoint, direction: CGFloat) {
@@ -222,6 +265,10 @@ final class GooseScene: SKScene, GooseSceneEffects {
 
     private func fadeOutDroppedWindow(_ window: FloatingWindow) {
         droppedWindows.removeAll { $0 === window }
+        // Untrack BEFORE the close: the willClose notification fires inside
+        // closeWithFade, and we don't want to count goose-initiated fade-out
+        // as a user close.
+        trackedGooseWindows.remove(window.window)
         window.closeWithFade(duration: Self.droppedWindowFadeDuration)
     }
 

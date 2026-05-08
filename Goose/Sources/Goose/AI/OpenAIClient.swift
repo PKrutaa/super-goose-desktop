@@ -42,7 +42,8 @@ final class OpenAIClient: LLMProvider {
         guard let raw = await call(systemPrompt: systemPrompt + " Respond with strict JSON only.", userPrompt: user) else {
             return nil
         }
-        return Self.decode(GeneratedNote.self, from: raw)
+        guard let note = Self.decode(GeneratedNote.self, from: raw) else { return nil }
+        return Self.sanitize(note: note)
     }
 
     func decideChill(systemPrompt: String, snapshot: ContextSnapshot, candidates: [PlaylistCandidate]) async -> ChillDecision? {
@@ -137,15 +138,20 @@ final class OpenAIClient: LLMProvider {
         return """
         \(context)
 
-        Write a short opinionated sticky note from a sarcastic-cynical desktop goose
-        about what the user is doing right now. Title is a filename like "untitled.txt"
-        or "todo.md" or "honk.txt" (be creative — it's a goose). Body is 2-4 lines max,
-        lower case, no emojis, no exclamation points except 'honk'. Be specific to the
-        context — reference the app, the OCR, the idle time. The goose is feral,
-        observant, and dry. Vary your output every time — never repeat past notes.
+        Write a short opinionated sticky note from a sarcastic-cynical desktop goose.
+        It's a fake goose-written note that the user finds on their screen.
+
+        Hard rules:
+        - title: a tiny filename like "untitled.txt", "todo.md", "honk.txt", "rant.txt".
+          Just a filename. NOT the app name, NOT a quoted phrase.
+        - body: 2 to 4 short lines, lower case, no emojis, no exclamation points
+          except the word 'honk'. Total under 80 characters.
+        - DO NOT quote any OCR text or app names verbatim.
+        - DO NOT echo the prompt or any field labels back. Output ONLY the JSON.
+        - The goose is feral, observant, dry. Be opinionated, not descriptive.
 
         Respond with strict JSON only:
-        {"title": "<filename>", "body": "<note body, can have \\n>"}
+        {"title": "<filename>", "body": "<note body, can include \\n>"}
         """
     }
 
@@ -169,13 +175,13 @@ final class OpenAIClient: LLMProvider {
     }
 
     private static func contextLine(snapshot: ContextSnapshot) -> String {
+        // OCR was leaking into note bodies — model would quote arbitrary
+        // screen text verbatim. Send only safe, summarized signals.
         let app = snapshot.frontmostAppName ?? "unknown"
         let prev = snapshot.prevFrontmostAppName ?? "none"
         let time = Int(snapshot.elapsedOnApp)
         let idle = Int(snapshot.idleSeconds)
-        let ocr = snapshot.ocrTopK.joined(separator: "; ")
-        let raw = "context: app=\(app) | timeOnApp=\(time)s | prev=\(prev) | idle=\(idle)s | ocr=[\(ocr)]"
-        return String(raw.prefix(500))
+        return "user is in \(app) (was in \(prev) before, \(time)s on this app, \(idle)s idle)"
     }
 
     // MARK: - JSON decode
@@ -184,6 +190,42 @@ final class OpenAIClient: LLMProvider {
         let cleaned = stripJSONFences(raw)
         guard let data = cleaned.data(using: .utf8) else { return nil }
         return try? JSONDecoder().decode(type, from: data)
+    }
+
+    /// Last-mile guard: if the model still echoed prompt-y text into the note,
+    /// trim/replace. This is belt-and-suspenders alongside the prompt rules.
+    private static func sanitize(note: GeneratedNote) -> GeneratedNote? {
+        let cleanTitle = sanitizeTitle(note.title)
+        let cleanBody = sanitizeBody(note.body)
+        guard !cleanBody.isEmpty else { return nil }
+        return GeneratedNote(title: cleanTitle, body: cleanBody)
+    }
+
+    private static func sanitizeTitle(_ s: String) -> String {
+        let t = s.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if t.count > 24 || t.contains(" ") || !t.contains(".") {
+            return "untitled.txt"
+        }
+        return t
+    }
+
+    private static func sanitizeBody(_ s: String) -> String {
+        var b = s.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Strip prompt-leakage prefixes if any survived.
+        let droppedPrefixes = ["context:", "user is in", "title:", "body:", "{"]
+        for prefix in droppedPrefixes {
+            if b.lowercased().hasPrefix(prefix.lowercased()) {
+                if let nl = b.firstIndex(of: "\n") {
+                    b = String(b[b.index(after: nl)...]).trimmingCharacters(in: .whitespacesAndNewlines)
+                } else {
+                    return ""
+                }
+            }
+        }
+        // Cap to 4 lines, 80 chars.
+        let lines = b.split(separator: "\n", omittingEmptySubsequences: false).prefix(4)
+        let capped = lines.joined(separator: "\n")
+        return String(capped.prefix(80))
     }
 
     private static func stripJSONFences(_ s: String) -> String {
