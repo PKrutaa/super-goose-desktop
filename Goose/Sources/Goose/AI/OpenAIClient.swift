@@ -3,7 +3,7 @@ import Foundation
 /// OpenAI chat-completion client. Opt-in: only `.ready` if an API key is found
 /// in `OPENAI_API_KEY` env var or at `~/.config/goose/openai-key`.
 ///
-/// Uses gpt-4o-mini with `response_format: json_object` so the model is
+/// Uses gpt-5-mini with `response_format: json_object` so the model is
 /// forced to return strict JSON, which we parse back into typed responses.
 ///
 /// Privacy note: this sends snapshot context (app name, OCR snippets, idle
@@ -11,11 +11,11 @@ import Foundation
 /// Models path is preferred when available.
 @MainActor
 final class OpenAIClient: LLMProvider {
-    static let model = "gpt-4o-mini"
+    static let model = "gpt-5-mini"
     static let endpoint = URL(string: "https://api.openai.com/v1/chat/completions")!
     static let timeoutSeconds: TimeInterval = 8
 
-    let label = "OpenAI(gpt-4o-mini)"
+    let label = "OpenAI(gpt-5-mini)"
     private(set) var status: LLMStatus
     private let apiKey: String?
 
@@ -36,7 +36,7 @@ final class OpenAIClient: LLMProvider {
     func generateNote(systemPrompt: String, snapshot: ContextSnapshot) async -> GeneratedNote? {
         guard case .ready = status else { return nil }
         let user = OpenAIClient.notePrompt(snapshot: snapshot)
-        guard let raw = await call(systemPrompt: systemPrompt + " Respond with strict JSON only.", userPrompt: user, temperature: 1.0) else {
+        guard let raw = await call(systemPrompt: systemPrompt + " Respond with strict JSON only.", userPrompt: user) else {
             return nil
         }
         return Self.decode(GeneratedNote.self, from: raw)
@@ -45,7 +45,7 @@ final class OpenAIClient: LLMProvider {
     func decideChill(systemPrompt: String, snapshot: ContextSnapshot, candidates: [PlaylistCandidate]) async -> ChillDecision? {
         guard case .ready = status else { return nil }
         let user = OpenAIClient.chillPrompt(snapshot: snapshot, candidates: candidates)
-        guard let raw = await call(systemPrompt: systemPrompt + " Respond with strict JSON only.", userPrompt: user, temperature: 0.9) else {
+        guard let raw = await call(systemPrompt: systemPrompt + " Respond with strict JSON only.", userPrompt: user) else {
             return nil
         }
         guard let decision = Self.decode(ChillDecision.self, from: raw) else { return nil }
@@ -58,9 +58,12 @@ final class OpenAIClient: LLMProvider {
 
     // MARK: - HTTP
 
-    private func call(systemPrompt: String, userPrompt: String, temperature: Double) async -> String? {
+    private func call(systemPrompt: String, userPrompt: String) async -> String? {
         guard let apiKey else { return nil }
 
+        // gpt-5 family: temperature is locked to default and `max_tokens` is
+        // replaced by `max_completion_tokens`. Keep params minimal so the
+        // request works across both 4o-mini and 5-mini.
         let body: [String: Any] = [
             "model": Self.model,
             "messages": [
@@ -68,8 +71,7 @@ final class OpenAIClient: LLMProvider {
                 ["role": "user", "content": userPrompt],
             ],
             "response_format": ["type": "json_object"],
-            "temperature": temperature,
-            "max_tokens": 200,
+            "max_completion_tokens": 400,
         ]
         guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else { return nil }
 

@@ -34,7 +34,7 @@ O ganso aparece em uma janela transparente click-through cobrindo a tela. Para s
 
 Três caminhos em ordem de preferência:
 
-1. **OpenAI (gpt-4o-mini)** — opt-in. Configure se quiser:
+1. **OpenAI (gpt-5-mini)** — opt-in. Configure se quiser:
    ```bash
    mkdir -p ~/.config/goose
    echo "sk-..." > ~/.config/goose/openai-key

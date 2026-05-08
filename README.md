@@ -60,7 +60,7 @@ Design history lives under `docs/superpowers/specs/` and `docs/superpowers/plans
 
 The goose has three layered decision paths, tried in order:
 
-1. **OpenAI (gpt-4o-mini)** — opt-in, off by default. If a key is configured, this is used first.
+1. **OpenAI (gpt-5-mini)** — opt-in, off by default. If a key is configured, this is used first.
 2. **Apple Foundation Models** — on-device, on if your Mac has Apple Intelligence enabled.
 3. **Deterministic pools** — handcrafted notes, browse URLs, and music; runs when neither LLM is reachable.
 

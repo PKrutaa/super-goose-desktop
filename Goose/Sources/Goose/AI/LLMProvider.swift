@@ -1,7 +1,7 @@
 import Foundation
 
 /// Common surface for LLM-backed decisions. `FoundationModelClient` (on-device
-/// Apple Intelligence) and `OpenAIClient` (network, gpt-4o-mini) both
+/// Apple Intelligence) and `OpenAIClient` (network, gpt-5-mini) both
 /// implement this; `LLMRouter` composes them in priority order.
 @MainActor
 protocol LLMProvider: AnyObject {
