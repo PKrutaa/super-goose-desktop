@@ -82,6 +82,8 @@ final class AgentDirector {
         case .browse:
             guard let url = decision.browseURL else { return }
             simulation.setTask(BrowseTask(url: url, effects: effects))
+        case .chill:
+            simulation.setTask(ChillingTask(spotifyURI: decision.spotifyURI, effects: effects))
         }
     }
 }

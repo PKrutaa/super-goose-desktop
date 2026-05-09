@@ -40,6 +40,10 @@ final class WanderTask: GooseTask {
             pickNextTarget(simulation: simulation)
         } else {
             simulation.velocity = .zero2
+            // Pin target to current position so the engine's velocity
+            // integration doesn't keep nudging the goose toward an
+            // already-arrived target during the pause.
+            simulation.targetPos = simulation.position
         }
     }
 

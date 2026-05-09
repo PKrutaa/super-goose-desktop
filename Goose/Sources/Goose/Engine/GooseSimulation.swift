@@ -70,6 +70,11 @@ final class GooseSimulation {
     }
 
     func setTask(_ task: GooseTask) {
+        // Give the outgoing task a chance to release visuals/state. Critical
+        // for tasks like ChillingTask that paint headphones / music-notes /
+        // dance bob and would otherwise leave them stuck on if preempted by
+        // a click, a rage event, or any other setTask caller.
+        currentTask?.stop(simulation: self)
         currentTask = task
         task.start(simulation: self)
     }
@@ -87,7 +92,16 @@ final class GooseSimulation {
         if CGPoint.magnitude(velocity) > currentSpeed {
             velocity = CGPoint.normalize(velocity) * currentSpeed
         }
-        velocity += CGPoint.normalize(targetPos - position) * currentAcceleration * GameTime.deltaTime
+        // Deadband: when the goose is essentially at its target, stop pushing
+        // velocity toward it. Without this, stationary tasks (pause, nap,
+        // deep sleep) leave a non-zero `targetPos - position` vector and the
+        // engine micro-jitters the goose forever toward an unreachable point.
+        let toTarget = targetPos - position
+        if CGPoint.magnitude(toTarget) > 1 {
+            velocity += CGPoint.normalize(toTarget) * currentAcceleration * GameTime.deltaTime
+        } else {
+            velocity = .zero2
+        }
         position += velocity * GameTime.deltaTime
 
         solveFeet()

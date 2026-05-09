@@ -10,4 +10,13 @@ protocol GooseSceneEffects: AnyObject {
     func attachDraggedWindow(_ window: FloatingWindow, at point: CGPoint, direction: CGFloat)
     func updateDraggedWindowPosition(_ point: CGPoint, direction: CGFloat)
     func detachDraggedWindow()
+
+    /// Toggle the chilling-headphones overlay on the goose.
+    func setHeadphones(visible: Bool)
+
+    /// Toggle the floating music-note particle emitter around the goose's head.
+    func setMusicNotes(active: Bool)
+
+    /// Toggle the chaotic head-banging dance bob on the goose container.
+    func setDancing(active: Bool)
 }

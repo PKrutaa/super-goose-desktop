@@ -12,11 +12,14 @@ final class GooseBrain {
     }
 
     private let personality: Personality
-    private let fmClient: FoundationModelClient
+    private let llm: LLMProvider
+    private var recentNoteTitles: [String] = []
+    private static let recentNoteCap = 5
+    private static let recentBrowseCap = 5
 
-    init(personality: Personality = .default, fmClient: FoundationModelClient = FoundationModelClient()) {
+    init(personality: Personality = .default, llm: LLMProvider = FoundationModelClient()) {
         self.personality = personality
-        self.fmClient = fmClient
+        self.llm = llm
     }
 
     /// Brain is always ready — the FM-unavailability case is handled by falling
@@ -41,14 +44,16 @@ final class GooseBrain {
         let tone = Personality.tone(forTimeOnApp: snapshot.elapsedOnApp, idle: snapshot.idleSeconds)
         let roll = Double.random(in: 0..<1)
 
-        // distribution: wander 28%, note 35%, nap 5%, deepSleep 10%, photo 14%, browse 8%
-        if roll < 0.28 {
+        // distribution: wander 35%, note 35%, nap 5%, deepSleep 9%, photo 8%, browse 8%
+        // (chill is owned exclusively by ChillingTicker — keeps brain from
+        // fighting the ticker's cooldown and cutting songs short)
+        if roll < 0.35 {
             return GooseDecision(action: .wander)
-        } else if roll < 0.63 {
+        } else if roll < 0.70 {
             return await pickNote(bucket: bucket, tone: tone, snapshot: snapshot)
-        } else if roll < 0.68 {
+        } else if roll < 0.75 {
             return GooseDecision(action: .nap)
-        } else if roll < 0.78 {
+        } else if roll < 0.84 {
             return GooseDecision(action: .deepSleep)
         } else if roll < 0.92 {
             return GooseDecision(action: .photo)
@@ -58,18 +63,38 @@ final class GooseBrain {
     }
 
     private func pickNote(bucket: Personality.AppBucket, tone: Personality.Tone, snapshot: ContextSnapshot) async -> GooseDecision {
-        if let generated = await fmClient.generateNote(systemPrompt: personality.systemPrompt, snapshot: snapshot) {
+        if let generated = await llm.generateNote(systemPrompt: personality.systemPrompt, snapshot: snapshot) {
+            rememberNote(title: generated.title)
             return GooseDecision(action: .note, noteTitle: generated.title, noteBody: generated.body)
         }
         let pool = personality.notePool(tone: tone, bucket: bucket)
-        let pick = pool.randomElement() ?? ("untitled.txt", "honk")
+        // Anti-repetition: prefer entries not in the recent ring buffer.
+        let fresh = pool.filter { !recentNoteTitles.contains($0.title) }
+        let candidates = fresh.isEmpty ? pool : fresh
+        let pick = candidates.randomElement() ?? ("untitled.txt", "honk")
+        rememberNote(title: pick.title)
         return GooseDecision(action: .note, noteTitle: pick.title, noteBody: pick.body)
     }
 
+    private func rememberNote(title: String) {
+        recentNoteTitles.append(title)
+        if recentNoteTitles.count > Self.recentNoteCap {
+            recentNoteTitles.removeFirst()
+        }
+    }
+
+    private var recentBrowseURLs: [String] = []
+
     private func pickBrowse(bucket: Personality.AppBucket) -> GooseDecision {
         let choices = personality.browseChoices(bucket: bucket)
-        guard let pick = choices.randomElement() else {
+        let fresh = choices.filter { !recentBrowseURLs.contains($0.url.absoluteString) }
+        let candidates = fresh.isEmpty ? choices : fresh
+        guard let pick = candidates.randomElement() else {
             return GooseDecision(action: .wander)
+        }
+        recentBrowseURLs.append(pick.url.absoluteString)
+        if recentBrowseURLs.count > Self.recentBrowseCap {
+            recentBrowseURLs.removeFirst()
         }
         return GooseDecision(action: .browse, browseURL: pick.url)
     }
@@ -82,6 +107,7 @@ final class GooseBrain {
         case .note: return "note(\(decision.noteTitle.prefix(30)))"
         case .photo: return "photo"
         case .browse: return "browse(\(decision.browseURL?.absoluteString.prefix(40) ?? ""))"
+        case .chill: return "chill(\(decision.spotifyURI?.suffix(20) ?? ""))"
         }
     }
 }

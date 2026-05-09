@@ -4,13 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository layout
 
-This repo holds **two separate codebases for the same app**:
+`Goose/` is the project — a Swift 6.2 / SPM macOS app targeting macOS 26+. Everything else (`docs/`, `CLAUDE.md`, `README.md`, `LICENSE`) is supporting material.
 
-- `Goose/` — **the active project**: a Swift 6.2 / SPM port targeting macOS 26+. All new work happens here.
-- `Source/GooseDesktop/` — the original C# (WinForms/MonoGame) code from samperson, kept as **read-only reference** when porting behaviors. Do not modify.
-- `Desktop Goose v0.22/` and `Desktop Goose v0.22.zip` — Jesús A. Álvarez's prior Mac port, also reference-only.
-
-The Swift port is more than a 1:1 rewrite — it's evolving the goose into an agent that observes the screen (Vision OCR + Accessibility) and decides actions via Apple Foundation Models. See `Goose/README.md` for the slice roadmap.
+The Swift port is more than a 1:1 rewrite of samperson's original Desktop Goose — it's evolving into an agent that observes the screen (Vision OCR + Accessibility) and decides actions via Apple Foundation Models. See `Goose/README.md` for the slice roadmap.
 
 ## Build / run / develop
 
@@ -40,7 +36,7 @@ Entry: `main.swift` → `AppDelegate` → `OverlayWindow` (transparent, click-th
 Three layers, deliberately decoupled:
 
 1. **Engine / simulation** (`Engine/`, `Scene/`)
-   `GooseSimulation` is the single source of truth for goose state (position, velocity, feet IK, current task). It exposes mutable fields that tasks read/write directly each tick — there's no event bus. `GooseRig` derives a renderable pose; `GooseArt` (in `Scene/`) draws it. Math helpers ported from the C# original live in `SamMath.swift`, `Vec2Math.swift`, `Easings.swift`.
+   `GooseSimulation` is the single source of truth for goose state (position, velocity, feet IK, current task). It exposes mutable fields that tasks read/write directly each tick — there's no event bus. `GooseRig` derives a renderable pose; `GooseArt` (in `Scene/`) draws it. Math helpers (`SamMath.swift`, `Vec2Math.swift`, `Easings.swift`) were originally ported from samperson's C#.
 
 2. **Tasks** (`Tasks/`)
    Behaviors implement the `GooseTask` protocol (`start` + per-frame `tick`). One task is active at a time via `simulation.setTask(...)`. Tasks own their timing/state and mutate the simulation directly. When adding behavior, prefer a new task over wedging logic into the simulation.
@@ -65,5 +61,4 @@ Almost everything is `@MainActor`. SpriteKit, AppKit, and the simulation all liv
 - **Logging**: warnings/errors go to **stderr** via `FileHandle.standardError.write(...)` (see `PerceptionLog`). This is intentional — running from a terminal surfaces permission/setup issues without opening Console.app. Prefer this pattern over `print` or `os_log` for diagnostics.
 - **Pixel art**: the SKView uses `.nearest` filtering. Don't add bilinear scaling or smoothed transforms to sprites.
 - **No XCConfig / Xcode project files**: this is pure SPM. The `.gitignore` explicitly excludes `*.xcodeproj` — do not commit one.
-- **Reference C# when porting**: when implementing a new task or engine behavior, check `Source/GooseDesktop/` for the original (e.g. `TheGoose.cs`, `MainGame.cs`, `FootMark.cs`). The Swift names mirror the C# ones intentionally.
 - The Swift target requires `macOS(.v26)` and `swift-tools-version: 6.2` — don't lower these to broaden compatibility unless asked.

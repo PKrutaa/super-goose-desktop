@@ -19,6 +19,7 @@ final class DeepSleepTask: GooseTask {
 
     func start(simulation: GooseSimulation) {
         simulation.velocity = .zero2
+        simulation.targetPos = simulation.position
         let duration = SamMath.randomRange(Self.minDuration, Self.maxDuration)
         endTime = GameTime.time + duration
         initialMousePosition = NSEvent.mouseLocation
@@ -28,6 +29,7 @@ final class DeepSleepTask: GooseTask {
 
     func tick(simulation: GooseSimulation) {
         simulation.velocity = .zero2
+        simulation.targetPos = simulation.position
 
         let mouse = NSEvent.mouseLocation
         let goose = simulation.position

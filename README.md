@@ -56,21 +56,85 @@ See [`CLAUDE.md`](CLAUDE.md) for the high-level layering. Short version:
 
 Design history lives under `docs/superpowers/specs/` and `docs/superpowers/plans/`.
 
+## Brain backends
+
+The goose has three layered decision paths, tried in order:
+
+1. **OpenAI (`gpt-5-mini` by default)** — opt-in, off by default. When configured, used first for note generation and chill-playlist selection.
+2. **Apple Foundation Models** — on-device, used automatically if your Mac has Apple Intelligence enabled and the model assets are downloaded.
+3. **Deterministic pools** — handcrafted notes, browse URLs, and music; always available as the last-resort fallback.
+
+The router (`AI/LLMRouter.swift`) walks the list and uses the first ready provider; if a call fails or returns malformed output, it falls through to the next. This means the goose **always works** — even with no internet and no Apple Intelligence.
+
+### Enabling OpenAI
+
+Two ways. Pick one.
+
+**Config file** (recommended for desktop apps launched from Finder):
+
+```bash
+mkdir -p ~/.config/goose
+echo "sk-your-openai-key-here" > ~/.config/goose/openai-key
+chmod 600 ~/.config/goose/openai-key
+```
+
+**Environment variable** (handy when launching via terminal):
+
+```bash
+export OPENAI_API_KEY=sk-your-key-here
+swift run
+```
+
+The key is read once at process startup. Edit and re-launch to swap.
+
+### Switching models
+
+Default is `gpt-5-mini` (reasoning model). Cheaper and lower-latency choice: `gpt-4o-mini`. Edit `Goose/Sources/Goose/AI/OpenAIClient.swift`:
+
+```swift
+static let model = "gpt-5-mini"   // or "gpt-4o-mini", "gpt-5-nano", etc.
+```
+
+The client sets `reasoning_effort: "low"` and `max_completion_tokens: 1500`, which works for both 4o and 5-family models. Per-call cost is minimal — gpt-5-mini at low reasoning effort runs around fractions of a cent per note.
+
+### Status checks at runtime
+
+When you run `swift run`, the stderr log tells you which providers are live:
+
+```
+[Goose] OpenAIClient: ready (key=...A4f2)
+[Goose] FoundationModelClient: unavailable (appleIntelligenceNotEnabled)
+[Goose] LLMRouter: Router(OpenAI(gpt-5-mini)[ready] → AppleFoundationModels[unavailable])
+```
+
+If neither lights up, the deterministic pools take over silently — you'll see `[fallback]` markers in `ChillingTicker` decisions.
+
+### What gets sent to OpenAI
+
+Each LLM call carries a tiny context line:
+
+> `user is in <app> (was in <prev_app> before, <N>s on this app, <N>s idle)`
+
+That's it. **No OCR, no screenshot bytes, no window titles.** OCR was removed after it was found to leak verbatim into note bodies (and was a privacy risk). The model sees only app names + timing.
+
 ## Privacy
 
-All perception (screen capture, OCR, Accessibility) runs **on-device**. Foundation Models, when wired, is also on-device. Nothing the goose "sees" leaves your machine. The only network traffic is the `RealBrowserWindow` loading a URL the brain picked — visible to you on screen.
+- **Screen capture, OCR, Accessibility** — always run **on-device**. Captured locally for the brain's deterministic pools and never sent over the network. (See "What gets sent to OpenAI" above.)
+- **Apple Foundation Models** — **on-device** inference; no network involved.
+- **OpenAI mode (opt-in)** — sends only the frontmost app name + timing summary to OpenAI servers. No OCR, no window titles, no screenshot data. Off by default.
+- **`RealBrowserWindow`** — loads a URL the brain picked into a click-through `WKWebView`. Visible on-screen.
+- **Spotify** — controlled via local AppleScript (`osascript`). Zero network from this app — Spotify itself does the streaming.
+- **Honk audio** — local file playback only.
 
 ## Credits
 
-- **Sam Chiet** ([@samnchiet](https://twitter.com/samnchiet)) — original [Desktop Goose](https://samperson.itch.io/desktop-goose) for Windows. The C# source is preserved under `Source/` as the reference port.
-- **Jesús A. Álvarez** — prior Mac port (v0.22), referenced in `README-GOOSE.MD`.
-- **[romainflcht/py-goose](https://github.com/romainflcht/py-goose)** — sprite source used at runtime (not versioned in this repo).
+- **Sam Chiet** ([@samnchiet](https://twitter.com/samnchiet)) — original [Desktop Goose](https://samperson.itch.io/desktop-goose) for Windows; this project takes the concept and reimagines it on macOS.
+- **Jesús A. Álvarez** — prior Mac port (v0.22) of Sam's project, which inspired some of the macOS wiring choices.
+- **[romainflcht/py-goose](https://github.com/romainflcht/py-goose)** — sprite source used at runtime (not versioned in this repo; pulled at setup time).
 - **Honks** sampled from *Untitled Goose Game*.
 
 ## License
 
-The Swift port (everything under `Goose/`, `docs/`, `CLAUDE.md`, `README.md`) is MIT licensed — see [`LICENSE`](LICENSE).
-
-The C# original under `Source/` belongs to samperson and is included unchanged as a reference. Audio assets distributed with the original Desktop Goose belong to their respective owners. Don't redistribute the original `Desktop Goose v0.22.zip` binary; link to [samperson's itch page](https://samperson.itch.io/desktop-goose) instead.
+MIT — see [`LICENSE`](LICENSE). Audio samples (honks, etc.) belong to their respective owners and are not redistributed by this repository — they're loaded at runtime from the user's local resources.
 
 This is a personal hobby project, not affiliated with samperson, Jesús A. Álvarez, or the *Untitled Goose Game* team.

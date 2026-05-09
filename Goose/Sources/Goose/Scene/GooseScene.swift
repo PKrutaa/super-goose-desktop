@@ -11,10 +11,21 @@ final class GooseScene: SKScene, GooseSceneEffects {
     private let evictBar = EvictProgressBar()
     private let gooseContainer = SKNode()
     private let hearts = HeartParticles()
+    private let headphones = HeadphonesNode()
+    private let musicNotes = MusicNoteParticles()
 
     private var agent: AgentDirector?
     private var honkTicker: HonkTicker?
+    private var chillingTicker: ChillingTicker?
     private let perception = PerceptionEngine()
+    private var isDancing = false
+    private var danceStartTime: TimeInterval = 0
+
+    /// Windows the goose has opened that we're watching for user-initiated
+    /// close. When one closes while still in this set, the user did it →
+    /// goose rages and chases the cursor.
+    private var trackedGooseWindows: Set<NSWindow> = []
+    private var closeObserver: NSObjectProtocol?
     private var currentDraggedWindow: FloatingWindow?
     private var droppedWindows: [FloatingWindow] = []
 
@@ -35,6 +46,7 @@ final class GooseScene: SKScene, GooseSceneEffects {
         gooseContainer.setScale(Self.displayScale)
         gooseContainer.zPosition = 10
         gooseContainer.addChild(goose.node)
+        gooseContainer.addChild(headphones)
         addChild(gooseContainer)
 
         evictBar.position = CGPoint(x: 16, y: size.height - 28)
@@ -43,6 +55,9 @@ final class GooseScene: SKScene, GooseSceneEffects {
 
         hearts.zPosition = 70
         addChild(hearts)
+
+        musicNotes.zPosition = 70
+        addChild(musicNotes)
 
         simulation.screenSize = size / Self.displayScale
         simulation.position = CGPoint(x: simulation.screenSize.width / 2, y: simulation.screenSize.height / 2)
@@ -55,24 +70,98 @@ final class GooseScene: SKScene, GooseSceneEffects {
         simulation.onBite = { [weak audio] in audio?.playBite() }
         simulation.setTask(WanderTask())
 
-        let brain = GooseBrain(personality: .default)
+        let personality = Personality.default
+        // OpenAI first (when configured), Apple FoundationModels second.
+        // Both fall back to deterministic pools at the call sites if neither
+        // is ready or both fail.
+        let openAI = OpenAIClient()
+        let fm = FoundationModelClient()
+        let llm = LLMRouter(providers: [openAI, fm])
+        let brain = GooseBrain(personality: personality, llm: llm)
         let agent = AgentDirector(simulation: simulation, effects: self, perception: perception, brain: brain)
         self.agent = agent
         agent.start()
         let ticker = HonkTicker(simulation: simulation, perception: perception)
         ticker.start()
         self.honkTicker = ticker
+        let chillTicker = ChillingTicker(
+            simulation: simulation,
+            perception: perception,
+            effects: self,
+            personality: personality,
+            llm: llm
+        )
+        chillTicker.start()
+        self.chillingTicker = chillTicker
+
+        closeObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] note in
+            // Pull the window out before crossing actor boundaries — `note` is
+            // not Sendable, but NSWindow (an NSObject ref) is fine to ferry.
+            guard let win = note.object as? NSWindow else { return }
+            MainActor.assumeIsolated {
+                self?.handleWindowWillClose(win)
+            }
+        }
+    }
+
+    /// Called by the willClose observer for any NSWindow in the process. We
+    /// only react if it's one we tracked (i.e. the goose opened it AND we
+    /// haven't already untracked because we initiated the close ourselves).
+    private func handleWindowWillClose(_ window: NSWindow) {
+        guard trackedGooseWindows.remove(window) != nil else { return }
+        triggerRage()
+    }
+
+    private func triggerRage() {
+        // The user just dismissed something the goose dropped on them.
+        // Honk + chase the cursor, regardless of what task is running.
+        simulation.onHonk?()
+        simulation.setTask(NabMouseTask())
+        FileHandle.standardError.write(Data("[Goose] rage: user closed a goose-opened window\n".utf8))
     }
 
     override func update(_ currentTime: TimeInterval) {
         pollMouseInteraction()
         simulation.tick()
         goose.update(simulation: simulation)
+        var rig = GooseRig()
+        rig.update(position: simulation.position, directionDegrees: simulation.direction, neckLerp: simulation.neckLerpPercent)
+        headphones.update(headPoint: rig.neckHeadPoint, perpendicular: rig.perpendicular)
+        updateDanceBob(currentTime: currentTime)
+    }
+
+    /// Sine-bounce the entire goose container while dancing. Frequency ~2.5Hz
+    /// (≈150 BPM, head-banger tempo). Amplitude 5px vertical + tiny 2px sway.
+    /// Music-note anchor reads from `headphones.position` (already bobbing
+    /// with the container) so notes spawn from the visual head.
+    private func updateDanceBob(currentTime: TimeInterval) {
+        guard isDancing else {
+            if gooseContainer.position != .zero {
+                gooseContainer.position = .zero
+            }
+            return
+        }
+        let t = currentTime - danceStartTime
+        let bobY = sin(t * .pi * 2 * 2.5) * 5
+        let swayX = sin(t * .pi * 2 * 1.25) * 2
+        gooseContainer.position = CGPoint(x: swayX, y: bobY)
     }
 
     override func willMove(from view: SKView) {
         agent?.stop()
         honkTicker?.stop()
+        chillingTicker?.stop()
+        // Clear tracked windows BEFORE removing observer so any stragglers
+        // closed during teardown don't trigger a posthumous rage event.
+        trackedGooseWindows.removeAll()
+        if let observer = closeObserver {
+            NotificationCenter.default.removeObserver(observer)
+            closeObserver = nil
+        }
     }
 
     private func pollMouseInteraction() {
@@ -114,7 +203,12 @@ final class GooseScene: SKScene, GooseSceneEffects {
     // MARK: - GooseSceneEffects (Native window dragging)
 
     func attachDraggedWindow(_ window: FloatingWindow, at point: CGPoint, direction: CGFloat) {
-        currentDraggedWindow?.closeWithFade(duration: 0.3)
+        if let prev = currentDraggedWindow {
+            // Goose is replacing its own dragged window — that's a self-close,
+            // don't rage.
+            trackedGooseWindows.remove(prev.window)
+            prev.closeWithFade(duration: 0.3)
+        }
         currentDraggedWindow = window
         window.window.alphaValue = 0
         window.setCenter(windowCenter(beak: point, direction: direction, windowSize: window.size))
@@ -123,11 +217,45 @@ final class GooseScene: SKScene, GooseSceneEffects {
             context.duration = 0.25
             window.window.animator().alphaValue = 1
         }
+        trackedGooseWindows.insert(window.window)
     }
 
     func updateDraggedWindowPosition(_ point: CGPoint, direction: CGFloat) {
         guard let window = currentDraggedWindow else { return }
         window.setCenter(windowCenter(beak: point, direction: direction, windowSize: window.size))
+    }
+
+    func setHeadphones(visible: Bool) {
+        if visible { headphones.show() } else { headphones.hide() }
+    }
+
+    func setMusicNotes(active: Bool) {
+        if active {
+            musicNotes.start { [weak self] in
+                guard let self else { return .zero }
+                var rig = GooseRig()
+                rig.update(
+                    position: self.simulation.position,
+                    directionDegrees: self.simulation.direction,
+                    neckLerp: self.simulation.neckLerpPercent
+                )
+                // Add the dance bob so notes spawn from the visual head, not
+                // the locked simulation head.
+                let bob = self.gooseContainer.position
+                return CGPoint(x: rig.neckHeadPoint.x + bob.x, y: rig.neckHeadPoint.y + bob.y)
+            }
+        } else {
+            musicNotes.stop()
+        }
+    }
+
+    func setDancing(active: Bool) {
+        isDancing = active
+        if active {
+            danceStartTime = CACurrentMediaTime()
+        } else {
+            gooseContainer.position = .zero
+        }
     }
 
     func detachDraggedWindow() {
@@ -142,6 +270,10 @@ final class GooseScene: SKScene, GooseSceneEffects {
 
     private func fadeOutDroppedWindow(_ window: FloatingWindow) {
         droppedWindows.removeAll { $0 === window }
+        // Untrack BEFORE the close: the willClose notification fires inside
+        // closeWithFade, and we don't want to count goose-initiated fade-out
+        // as a user close.
+        trackedGooseWindows.remove(window.window)
         window.closeWithFade(duration: Self.droppedWindowFadeDuration)
     }
 
