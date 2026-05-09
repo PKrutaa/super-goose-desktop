@@ -53,10 +53,17 @@ final class ChillingTask: GooseTask {
         simulation.targetPos = lockedPosition
 
         if GameTime.time >= endTime {
-            effects?.setHeadphones(visible: false)
-            effects?.setMusicNotes(active: false)
-            effects?.setDancing(active: false)
+            // setTask invokes stop() on us → visual cleanup runs there.
             simulation.setTask(WanderTask())
         }
+    }
+
+    func stop(simulation: GooseSimulation) {
+        // Runs on natural timeout AND on any external preemption (rage,
+        // user click, new brain decision). Idempotent: calling these
+        // setters again with `false` is safe.
+        effects?.setHeadphones(visible: false)
+        effects?.setMusicNotes(active: false)
+        effects?.setDancing(active: false)
     }
 }
