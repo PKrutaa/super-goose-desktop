@@ -1,0 +1,151 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+# Avoid burning runner time on superseded PR pushes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # -----------------------------------------------------------------
+  # Build matrix — debug + release. Catches issues that only manifest
+  # with optimizations or with Swift 6 concurrency checking enabled in
+  # release mode.
+  # -----------------------------------------------------------------
+  build:
+    name: Build (${{ matrix.config }})
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        config: [debug, release]
+    defaults:
+      run:
+        working-directory: Goose
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # The project requires Swift 6.2+. On macOS runners we pick whatever
+      # latest Xcode the image ships. If the toolchain is older than 6.2
+      # the build will fail loudly — that's the correct signal.
+      - name: Select latest Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Show toolchain
+        run: |
+          swift --version
+          xcodebuild -version
+
+      - name: Cache .build
+        uses: actions/cache@v4
+        with:
+          path: Goose/.build
+          key: ${{ runner.os }}-spm-${{ matrix.config }}-${{ hashFiles('Goose/Package.swift', 'Goose/Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-${{ matrix.config }}-
+
+      - name: Build
+        run: swift build -c ${{ matrix.config }} -v
+
+      - name: Treat warnings as errors (release only)
+        if: matrix.config == 'release'
+        run: |
+          swift build -c release -Xswiftc -warnings-as-errors
+
+  # -----------------------------------------------------------------
+  # Smoke test — runs the headless --brain-dryrun and asserts shape of
+  # the output. No simulator, no real GUI; this is the closest we have
+  # to a unit test in this codebase (the project has no test target).
+  # -----------------------------------------------------------------
+  smoke:
+    name: Smoke (--brain-dryrun)
+    runs-on: macos-latest
+    needs: build
+    defaults:
+      run:
+        working-directory: Goose
+    steps:
+      - uses: actions/checkout@v4
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+      - name: Cache .build
+        uses: actions/cache@v4
+        with:
+          path: Goose/.build
+          key: ${{ runner.os }}-spm-release-${{ hashFiles('Goose/Package.swift', 'Goose/Package.resolved') }}
+      - name: Run brain dryrun
+        id: dryrun
+        run: |
+          set -euo pipefail
+          OUTPUT=$(swift run -c release Goose --brain-dryrun)
+          echo "$OUTPUT"
+          echo "$OUTPUT" > /tmp/dryrun.txt
+
+      - name: Assert 20 decision lines
+        run: |
+          DECISION_LINES=$(grep -E '^\[[0-9]+\]' /tmp/dryrun.txt | wc -l | tr -d ' ')
+          if [ "$DECISION_LINES" -lt 20 ]; then
+            echo "::error::Expected at least 20 decisions, got $DECISION_LINES"
+            exit 1
+          fi
+
+      - name: Assert brain does not emit .honk
+        run: |
+          if grep -E '→ honk$' /tmp/dryrun.txt; then
+            echo "::error::Brain emitted .honk — that case should be owned by HonkTicker, not the agent roulette"
+            exit 1
+          fi
+
+      - name: Assert action coverage (each type at least once over 20 rolls is unlikely; we expect at least 3 distinct)
+        run: |
+          DISTINCT=$(grep -oE '→ [a-zA-Z]+' /tmp/dryrun.txt | sort -u | wc -l | tr -d ' ')
+          if [ "$DISTINCT" -lt 3 ]; then
+            echo "::error::Only $DISTINCT distinct action types observed across 20 rolls — distribution broken"
+            exit 1
+          fi
+
+  # -----------------------------------------------------------------
+  # Lint — SwiftLint with the project's .swiftlint.yml. Non-fatal on
+  # individual warnings (autocorrected in dev), fatal on errors and on
+  # the "force_try" / "force_cast" hard rules.
+  # -----------------------------------------------------------------
+  lint:
+    name: SwiftLint
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: Goose
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install SwiftLint
+        run: brew install swiftlint
+      - name: Lint
+        run: swiftlint lint --strict --reporter github-actions-logging
+
+  # -----------------------------------------------------------------
+  # Docs / link check — make sure README.md links don't 404. Soft-fails
+  # via continue-on-error so flaky external sites don't block PRs.
+  # -----------------------------------------------------------------
+  docs:
+    name: Markdown link check
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Link check
+        uses: gaurav-nelson/github-action-markdown-link-check@v1
+        with:
+          use-quiet-mode: yes
+          config-file: .github/markdown-link-check.json

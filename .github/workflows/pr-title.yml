@@ -1,0 +1,52 @@
+name: PR title
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  conventional:
+    name: Conventional commit style
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            chore
+            docs
+            refactor
+            perf
+            test
+            ci
+            build
+            revert
+          # Allow scopes used in this repo. Empty means "anything goes".
+          scopes: |
+            ai
+            chill
+            openai
+            tasks
+            scene
+            engine
+            perception
+            audio
+            windows
+            cli
+            docs
+            ci
+            release
+          # Don't require a scope — short titles are fine.
+          requireScope: false
+          subjectPattern: ^(?![A-Z]).+$
+          subjectPatternError: |
+            The subject "{subject}" doesn't start with a lower-case letter.
+            Examples that pass:
+              feat(chill): all-metal playlists, head-banger dance bob
+              fix: stop LLM context bleed

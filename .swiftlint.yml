@@ -1,0 +1,86 @@
+# SwiftLint config for the Goose Swift port.
+#
+# This codebase has deliberate stylistic choices (verbose comments, long
+# explanatory lines, lots of single-purpose @MainActor classes) that don't
+# fit SwiftLint's defaults. The config is intentionally loose; we lean
+# on the compiler + reviews for correctness and use SwiftLint only as a
+# net for outright sloppiness.
+
+included:
+  - Goose/Sources
+
+excluded:
+  - Goose/.build
+  - Goose/Sources/Goose/Resources
+
+# Lines and bodies — let the prose breathe.
+line_length:
+  warning: 160
+  error: 220
+  ignores_urls: true
+  ignores_function_declarations: true
+  ignores_comments: true
+
+function_body_length:
+  warning: 120
+  error: 200
+
+type_body_length:
+  warning: 600
+  error: 1000
+
+file_length:
+  warning: 700
+  error: 1200
+
+cyclomatic_complexity:
+  warning: 18
+  error: 30
+
+large_tuple:
+  warning: 4
+  error: 6
+
+identifier_name:
+  min_length: 1
+  excluded:
+    - id
+    - x
+    - y
+    - i
+    - j
+    - n
+    - t
+    - p
+    - s
+
+# Things we definitely care about.
+opt_in_rules:
+  - closure_end_indentation
+  - closure_spacing
+  - explicit_init
+  - first_where
+  - last_where
+  - literal_expression_end_indentation
+  - operator_usage_whitespace
+  - overridden_super_call
+  - prefer_self_in_static_references
+  - prohibited_super_call
+  - redundant_nil_coalescing
+  - sorted_first_last
+  - unused_import
+  - vertical_parameter_alignment_on_call
+  - yoda_condition
+
+# Disabled — too noisy / not useful for this project.
+disabled_rules:
+  - todo                          # we annotate TODOs intentionally
+  - trailing_comma                # Swift's allowed trailing commas are fine
+  - multiple_closures_with_trailing_closure
+  - opening_brace                 # SwiftLint is wrong about K&R variants here
+  - statement_position
+  - nesting
+  - force_cast                    # used in a few SKAction casts intentionally
+  - force_unwrapping              # URL(string:)! on hardcoded URIs
+
+reporter: xcode

@@ -1,0 +1,13 @@
+version: 2
+updates:
+  # Keep GitHub Actions runner versions current.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      gha:
+        patterns: ["*"]

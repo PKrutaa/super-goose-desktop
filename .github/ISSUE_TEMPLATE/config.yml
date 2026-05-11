@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Personality / vibe questions
+    url: https://github.com/PKrutaa/super-goose-desktop/discussions
+    about: Discuss what the goose should be like, before filing a feature.

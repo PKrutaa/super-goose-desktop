@@ -1,0 +1,87 @@
+name: Bug report
+description: Something is broken in the goose
+title: "bug: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing! The goose is feral, but it shouldn't crash.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug.
+      placeholder: The goose froze for 30 seconds while chilling, then quit.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: How can someone else trigger this?
+      value: |
+        1. Run `swift run` in `Goose/`
+        2. Wait for the goose to ...
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      validations:
+        required: true
+
+  - type: input
+    id: macos-version
+    attributes:
+      label: macOS version
+      placeholder: "26.1.1"
+    validations:
+      required: true
+
+  - type: input
+    id: hardware
+    attributes:
+      label: Hardware
+      placeholder: "M3 MacBook Pro"
+    validations:
+      required: true
+
+  - type: input
+    id: swift-version
+    attributes:
+      label: Swift toolchain (`swift --version`)
+      placeholder: "Apple Swift version 6.2 ..."
+
+  - type: dropdown
+    id: brain-mode
+    attributes:
+      label: Which brain backend was active?
+      description: "Check the stderr log at startup — look for the `LLMRouter:` line."
+      options:
+        - OpenAI (configured + ready)
+        - Apple Foundation Models (configured + ready)
+        - Deterministic only (both LLMs unavailable)
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: stderr
+    attributes:
+      label: Relevant stderr output
+      description: Paste anything from stderr that looks related. `[Goose] ...` lines especially.
+      render: shell
+
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy check
+      options:
+        - label: I confirm any pasted OCR or window-title text in this issue is OK to share publicly.
+          required: true

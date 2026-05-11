@@ -1,0 +1,42 @@
+# Auto-label PRs based on touched paths.
+# Used by .github/workflows/label.yml (actions/labeler@v5).
+
+ai:
+  - changed-files:
+      - any-glob-to-any-file: ['Goose/Sources/Goose/AI/**']
+
+tasks:
+  - changed-files:
+      - any-glob-to-any-file: ['Goose/Sources/Goose/Tasks/**']
+
+scene:
+  - changed-files:
+      - any-glob-to-any-file: ['Goose/Sources/Goose/Scene/**']
+
+engine:
+  - changed-files:
+      - any-glob-to-any-file: ['Goose/Sources/Goose/Engine/**']
+
+perception:
+  - changed-files:
+      - any-glob-to-any-file: ['Goose/Sources/Goose/Perception/**']
+
+audio:
+  - changed-files:
+      - any-glob-to-any-file: ['Goose/Sources/Goose/Audio/**']
+
+windows:
+  - changed-files:
+      - any-glob-to-any-file: ['Goose/Sources/Goose/Windows/**']
+
+cli:
+  - changed-files:
+      - any-glob-to-any-file: ['Goose/Sources/Goose/main.swift', 'Goose/Sources/Goose/App/**']
+
+docs:
+  - changed-files:
+      - any-glob-to-any-file: ['**/*.md', 'docs/**', 'LICENSE']
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file: ['.github/**', '.swiftlint.yml']

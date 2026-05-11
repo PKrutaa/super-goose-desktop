@@ -1,0 +1,30 @@
+name: Stale
+
+on:
+  schedule:
+    # Once a week — tuesday 10:00 UTC.
+    - cron: '0 10 * * 2'
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@v9
+        with:
+          days-before-stale: 60
+          days-before-close: 14
+          stale-issue-label: stale
+          stale-pr-label: stale
+          exempt-issue-labels: 'pinned,security,roadmap'
+          exempt-pr-labels: 'pinned,security,wip'
+          stale-issue-message: |
+            This issue has been quiet for 60 days. The goose has moved on. If it's still relevant, drop a comment and we'll un-stale it; otherwise it'll close in 14 days.
+          stale-pr-message: |
+            This PR has been quiet for 60 days. Push something or comment to keep it open, otherwise it'll close in 14 days. (Don't take it personally — the goose is just impatient.)
+          close-issue-message: 'Closing for inactivity. Reopen if it comes back.'
+          close-pr-message: 'Closing for inactivity. Reopen if you pick it back up.'

@@ -1,0 +1,50 @@
+name: Feature idea
+description: Propose a new goose behavior, task, or capability
+title: "feat: "
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Got an idea for what the goose should do next? Drop it here.
+
+        Keep in mind: the goose is sarcastic-cynical, antagonistic-friendly,
+        and intentionally disruptive. Quiet productivity features are usually
+        a bad fit. Loud chaos is on-brand.
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: What should the goose do?
+      description: Describe the behavior, not the implementation.
+      placeholder: When I open Slack at 9 AM, the goose should slowly walk between the screen and my eyes until I close Slack.
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: Why is this on-brand?
+      description: Help convince the maintainer this fits the goose's personality.
+
+  - type: textarea
+    id: implementation
+    attributes:
+      label: Implementation notes (optional)
+      description: |
+        If you have thoughts on which layer this belongs in:
+        - Engine / simulation (movement, IK)
+        - GooseTask (one-off behavior)
+        - Ticker (independent cadence loop)
+        - Brain / LLM
+        - Scene (visuals)
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: I've checked existing issues for duplicates.
+          required: true
+        - label: This doesn't require new third-party network services.
+        - label: This doesn't require new third-party Swift packages.
