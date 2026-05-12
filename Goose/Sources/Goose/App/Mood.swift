@@ -2,18 +2,18 @@ import Foundation
 
 /// User-tunable energy level. Scales the cadence-related `Tuning` ranges so
 /// the goose can be made calmer (introvert) or more present (extrovert)
-/// without changing what it does — only how often. `.disabled` is a kill
+/// without changing what it does — only how often. `.hermit` is a kill
 /// switch: the goose stays on screen but stops every autonomous behavior
 /// (honks, agent decisions, chill, mouse-nabs, dragged windows).
 enum Mood: String, CaseIterable, Sendable {
-    case disabled
+    case hermit
     case introvert
     case neutral
     case extrovert
 
     var displayName: String {
         switch self {
-        case .disabled: return "Disabled"
+        case .hermit: return "Hermit"
         case .introvert: return "Introvert"
         case .neutral: return "Neutral"
         case .extrovert: return "Extrovert"
@@ -21,10 +21,10 @@ enum Mood: String, CaseIterable, Sendable {
     }
 
     /// Multiplied into wait/cadence durations. >1 = quieter, <1 = louder.
-    /// Unused for `.disabled` (fires are skipped entirely at their call sites).
+    /// Unused for `.hermit` (fires are skipped entirely at their call sites).
     var cadenceMultiplier: Double {
         switch self {
-        case .disabled: return 1.0
+        case .hermit: return 1.0
         case .introvert: return 4.0
         case .neutral: return 1.0
         case .extrovert: return 0.5
@@ -34,7 +34,7 @@ enum Mood: String, CaseIterable, Sendable {
 
 extension Notification.Name {
     /// Posted by `MoodStore.set` after the new mood is committed to defaults.
-    /// Subscribers (e.g. `GooseScene`) can react — for `.disabled`, the scene
+    /// Subscribers (e.g. `GooseScene`) can react — for `.hermit`, the scene
     /// resets the current task to `WanderTask` so any in-progress mouse-nab
     /// or window drag is interrupted immediately rather than running to
     /// completion.

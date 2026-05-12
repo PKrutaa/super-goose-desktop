@@ -118,11 +118,11 @@ final class GooseScene: SKScene, GooseSceneEffects {
         }
     }
 
-    /// Flipping to `.disabled` mid-action interrupts the running task by
+    /// Flipping to `.hermit` mid-action interrupts the running task by
     /// dropping the goose back to `WanderTask`. Without this, an in-flight
     /// mouse-nab or window drag would keep going until it finished naturally.
     private func handleMoodChange() {
-        guard MoodStore.current == .disabled else { return }
+        guard MoodStore.current == .hermit else { return }
         simulation.setTask(WanderTask())
     }
 
@@ -137,7 +137,7 @@ final class GooseScene: SKScene, GooseSceneEffects {
     private func triggerRage() {
         // The user just dismissed something the goose dropped on them.
         // Honk + chase the cursor, regardless of what task is running.
-        if MoodStore.current == .disabled { return }
+        if MoodStore.current == .hermit { return }
         simulation.onHonk?()
         simulation.setTask(NabMouseTask())
         FileHandle.standardError.write(Data("[Goose] rage: user closed a goose-opened window\n".utf8))
@@ -197,7 +197,7 @@ final class GooseScene: SKScene, GooseSceneEffects {
         let risingEdge = leftPressed && !lastLeftMouseDown
         lastLeftMouseDown = leftPressed
 
-        if risingEdge, dist < Self.clickRadius, !(simulation.currentTask is NabMouseTask), MoodStore.current != .disabled {
+        if risingEdge, dist < Self.clickRadius, !(simulation.currentTask is NabMouseTask), MoodStore.current != .hermit {
             simulation.setTask(NabMouseTask())
             return
         }
