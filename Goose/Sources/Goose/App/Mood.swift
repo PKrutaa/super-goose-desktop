@@ -19,7 +19,7 @@ enum Mood: String, CaseIterable, Sendable {
     /// Multiplied into wait/cadence durations. >1 = quieter, <1 = louder.
     var cadenceMultiplier: Double {
         switch self {
-        case .introvert: return 2.0
+        case .introvert: return 4.0
         case .neutral: return 1.0
         case .extrovert: return 0.5
         }
