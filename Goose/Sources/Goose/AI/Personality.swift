@@ -204,9 +204,17 @@ struct Personality: Sendable {
 
 /// Single source of truth for tunables that a future settings UI could override.
 enum Tuning {
-    static let honkBaseRange: ClosedRange<TimeInterval> = 35...60
-    static let honkAppChangeDebounce: TimeInterval = 30
+    static var honkBaseRange: ClosedRange<TimeInterval> {
+        let m = MoodStore.current.cadenceMultiplier
+        return (35 * m) ... (60 * m)
+    }
+    static var honkAppChangeDebounce: TimeInterval {
+        30 * MoodStore.current.cadenceMultiplier
+    }
     static let browseDwellSeconds: TimeInterval = 12
     static let fmTimeoutSeconds: TimeInterval = 3
-    static let agentLoopRange: ClosedRange<TimeInterval> = 30...75
+    static var agentLoopRange: ClosedRange<TimeInterval> {
+        let m = MoodStore.current.cadenceMultiplier
+        return (30 * m) ... (75 * m)
+    }
 }
