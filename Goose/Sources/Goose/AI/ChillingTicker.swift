@@ -95,6 +95,7 @@ final class ChillingTicker {
 
     private func tickOnce(reason: String) async {
         guard let simulation, let effects else { return }
+        if MoodStore.current == .disabled { return }
         updateChillTracking(simulation: simulation)
         if isBusy(simulation: simulation) { return }
 

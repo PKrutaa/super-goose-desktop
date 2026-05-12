@@ -31,6 +31,7 @@ final class HonkTicker {
                 let seconds = Double.random(in: Tuning.honkBaseRange)
                 try? await Task.sleep(for: .seconds(seconds))
                 if Task.isCancelled { return }
+                if MoodStore.current == .disabled { continue }
                 self?.simulation?.onHonk?()
             }
         }
@@ -54,6 +55,7 @@ final class HonkTicker {
         let current = perception?.lastFrontmostAppName
         defer { lastSeenApp = current }
         guard let current, current != lastSeenApp, lastSeenApp != nil else { return }
+        if MoodStore.current == .disabled { return }
         let now = Date()
         guard now.timeIntervalSince(lastBonusHonk) >= Tuning.honkAppChangeDebounce else { return }
         lastBonusHonk = now
