@@ -26,6 +26,7 @@ final class GooseScene: SKScene, GooseSceneEffects {
     /// goose rages and chases the cursor.
     private var trackedGooseWindows: Set<NSWindow> = []
     private var closeObserver: NSObjectProtocol?
+    private var moodObserver: NSObjectProtocol?
     private var currentDraggedWindow: FloatingWindow?
     private var droppedWindows: [FloatingWindow] = []
 
@@ -106,6 +107,23 @@ final class GooseScene: SKScene, GooseSceneEffects {
                 self?.handleWindowWillClose(win)
             }
         }
+        moodObserver = NotificationCenter.default.addObserver(
+            forName: .gooseMoodChanged,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.handleMoodChange()
+            }
+        }
+    }
+
+    /// Flipping to `.hermit` mid-action interrupts the running task by
+    /// dropping the goose back to `WanderTask`. Without this, an in-flight
+    /// mouse-nab or window drag would keep going until it finished naturally.
+    private func handleMoodChange() {
+        guard MoodStore.current == .hermit else { return }
+        simulation.setTask(WanderTask())
     }
 
     /// Called by the willClose observer for any NSWindow in the process. We
@@ -119,6 +137,7 @@ final class GooseScene: SKScene, GooseSceneEffects {
     private func triggerRage() {
         // The user just dismissed something the goose dropped on them.
         // Honk + chase the cursor, regardless of what task is running.
+        if MoodStore.current == .hermit { return }
         simulation.onHonk?()
         simulation.setTask(NabMouseTask())
         FileHandle.standardError.write(Data("[Goose] rage: user closed a goose-opened window\n".utf8))
@@ -162,6 +181,10 @@ final class GooseScene: SKScene, GooseSceneEffects {
             NotificationCenter.default.removeObserver(observer)
             closeObserver = nil
         }
+        if let observer = moodObserver {
+            NotificationCenter.default.removeObserver(observer)
+            moodObserver = nil
+        }
     }
 
     private func pollMouseInteraction() {
@@ -174,7 +197,7 @@ final class GooseScene: SKScene, GooseSceneEffects {
         let risingEdge = leftPressed && !lastLeftMouseDown
         lastLeftMouseDown = leftPressed
 
-        if risingEdge, dist < Self.clickRadius, !(simulation.currentTask is NabMouseTask) {
+        if risingEdge, dist < Self.clickRadius, !(simulation.currentTask is NabMouseTask), MoodStore.current != .hermit {
             simulation.setTask(NabMouseTask())
             return
         }

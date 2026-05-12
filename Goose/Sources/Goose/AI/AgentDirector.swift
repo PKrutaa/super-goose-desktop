@@ -47,6 +47,7 @@ final class AgentDirector {
     }
 
     private func tick() async {
+        if MoodStore.current == .hermit { return }
         let snapshot = await perception.captureSnapshot() ?? ContextSnapshot.empty()
         guard let decision = await brain.decide(snapshot: snapshot, recentActions: recentActions) else { return }
         execute(decision: decision)
